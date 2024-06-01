@@ -6,7 +6,7 @@ from aiogram import Bot
 import logging
 
 
-def extract_url_and_validate_mint_address(text: str):
+def extract_url_and_validate_mint_address(text: str) -> str | None:
     url_pattern = re.compile(r"https:\/\/(www\.)?pump\.fun\/[A-Za-z0-9]+")
     match = url_pattern.search(text)
 
@@ -29,7 +29,7 @@ def is_root_domain(url: str):
     return bool(ROOT_DOMAIN_PATTERN.match(url))
 
 
-async def expand_url(short_url: str):
+async def expand_url(short_url: str) -> str:
     try:
         async with aiohttp.ClientSession() as session:
             async with session.head(short_url, allow_redirects=True) as response:
@@ -39,7 +39,7 @@ async def expand_url(short_url: str):
         return short_url
 
 
-async def replace_short_urls(text: str):
+async def replace_short_urls(text: str) -> str:
     URL_PATTERN = re.compile(r"(https?://t\.co/\S+?)([\.,!?]*)(?:\s|$)")
 
     matches = URL_PATTERN.findall(text)
@@ -52,7 +52,7 @@ async def replace_short_urls(text: str):
     return text
 
 
-async def delete_message(bot: Bot, chat_id: int, messages: list[int]):
+async def delete_message(bot: Bot, chat_id: int, messages: list[int]) -> bool:
     attempts = 0
     max_attempts = 3
 

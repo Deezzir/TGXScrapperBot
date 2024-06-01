@@ -22,6 +22,7 @@ load_dotenv()
 TITLE = "🔰 XScrapper V1.0"
 DESCRIPTION = "The ultimate bot for scrapping Pump.fun drops from Twitter"
 TOKEN = getenv("BOT_TOKEN", "")
+DB = db.MongoDB()
 
 COMMANDS = {
     "setup": "Setup the chat",
@@ -33,11 +34,11 @@ if not TOKEN:
     print("BOT_TOKEN is not provided!")
     sys.exit(1)
 
-dp = Dispatcher()
-bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+DISPATCHER = Dispatcher()
+BOT = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
 
-@dp.message(CommandStart())
+@DISPATCHER.message(CommandStart())
 async def command_start_handler(message: Message) -> None:
     """
     This handler receives messages with `/start` command
@@ -58,37 +59,37 @@ async def command_start_handler(message: Message) -> None:
         await message.answer(payload, reply_markup=inline_keyboard)
 
 
-@dp.message(Command("setup"))
+@DISPATCHER.message(Command("setup"))
 async def command_setup_handler(message: Message) -> None:
     """
     This handler receives messages with `/setup` command
     """
-    chat_info = await bot.get_chat(message.chat.id)
+    chat_info = await BOT.get_chat(message.chat.id)
     await message.answer("Setup is not available yet.")
 
 
-@dp.message(Command("run"))
+@DISPATCHER.message(Command("run"))
 async def command_run_handler(message: Message) -> None:
     """
     This handler receives messages with `/run` command
     """
     if message.chat.is_forum:
         chat_id = message.chat.id
-        asyncio.create_task(twitter.run(chat_id, bot))
+        asyncio.create_task(twitter.run(chat_id, BOT, DB))
     else:
         await message.reply("This command is only available in groups with topics.")
 
 
-@dp.message(Command("stop"))
+@DISPATCHER.message(Command("stop"))
 async def command_stop_handler(message: Message) -> None:
     """
     This handler receives messages with `/stop` command
     """
     chat_id = message.chat.id
-    await twitter.stop(chat_id, bot)
+    await twitter.stop(chat_id, BOT)
 
 
-@dp.callback_query(F.data == "add_admin")
+@DISPATCHER.callback_query(F.data == "add_admin")
 async def callback_add_admin_handler(query: CallbackQuery) -> None:
     """
     This handler receives callback queries with `add_admin` callback_data
@@ -96,7 +97,7 @@ async def callback_add_admin_handler(query: CallbackQuery) -> None:
     await query.answer("Adding admin...")
 
 
-@dp.callback_query(F.data.startswith("block:"))
+@DISPATCHER.callback_query(F.data.startswith("block:"))
 async def callback_block_handler(query: CallbackQuery) -> None:
     """
     This handler receives callback queries with `block:` callback_data
@@ -104,37 +105,45 @@ async def callback_block_handler(query: CallbackQuery) -> None:
     if query.message is None or query.data is None or query.message is None:
         return
 
-    member = await bot.get_chat_member(query.message.chat.id, query.from_user.id)
+    member = await BOT.get_chat_member(query.message.chat.id, query.from_user.id)
     if member.status not in ["creator", "administrator"]:
         await query.answer("You must be an admin to block users.", show_alert=True)
         return
 
-    query_data = query.data.split(":")
-    if len(query_data) != 3:
-        return
-    username = query_data[1]
-    user_id = query_data[2]
+    query_parts = query.data.split(":")
+    if len(query_parts) != 3:
+        logging.error("Invalid query data format")
+        return None
+    action, username, user_id = query_parts
 
     await query.answer(f"Blocking {username}...")
-    await db.insert_banned(user_id)
+    await DB.insert_banned(user_id)
 
-    drop = await db.get_drop(user_id)
+    drop = await DB.get_drop(user_id)
     if drop:
-        await utils.delete_message(bot, query.message.chat.id, drop["messageIds"])
+        await utils.delete_message(
+            BOT, query.message.chat.id, drop.get("messageIds", [])
+        )
+        await DB.delete_drop(user_id)
 
     if isinstance(query.message, Message):
-        await bot.send_message(
+        await BOT.send_message(
             chat_id=query.message.chat.id,
             message_thread_id=query.message.message_thread_id,
-            text=f"<b>{username.upper()} IS BANNED</b>",
+            text=f"<b>{username.upper()}</b> has been blocked",
             parse_mode=ParseMode.HTML,
         )
 
 
 async def main() -> None:
-    await dp.start_polling(bot)
+    await DB.initialize()
+    await DISPATCHER.start_polling(BOT)
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    logging.basicConfig(
+        level=logging.INFO,
+        stream=sys.stdout,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
     asyncio.run(main())

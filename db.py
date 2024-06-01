@@ -1,99 +1,78 @@
-from pymongo.mongo_client import MongoClient
-from pymongo.server_api import ServerApi
-from os import getenv
-from dotenv import load_dotenv
-from typing import TypedDict
 import sys
-
+from os import getenv
+from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.server_api import ServerApi
+from dotenv import load_dotenv
 
 load_dotenv()
 
-MONGO_URI: str = getenv("MONGO_URI", "")
-COLLECTION_NAME: str = getenv("COLLECTION_NAME", "twitter")
 
-print("Connecting to MongoDB...")
-client: MongoClient = MongoClient(MONGO_URI, server_api=ServerApi("1"))
+class MongoDB:
+    def __init__(self):
+        self.MONGO_URI = getenv("MONGO_URI", "")
+        self.COLLECTION_NAME = getenv("COLLECTION_NAME", "twitter")
+        self.client = None
+        self.db = None
+        self.BANNED_COLLECTION = None
+        self.DROPS_COLLECTION = None
 
-try:
-    client.admin.command("ping")
-    print("Pinged your deployment. You successfully connected to MongoDB!")
-except Exception as e:
-    print(e)
-    sys.exit(1)
+    async def initialize(self):
+        print("Connecting to MongoDB...")
+        self.client = AsyncIOMotorClient(self.MONGO_URI, server_api=ServerApi("1"))
+        self.db = self.client[self.COLLECTION_NAME]
+        self.BANNED_COLLECTION = self.db["banned"]
+        self.DROPS_COLLECTION = self.db["drops"]
 
-banned_schema = {
-    "xUserId": {"type": "string", "unique": True},
-}
+        await self.check_db()
 
-drops_schema = {
-    "xUserId": {"type": "string", "unique": True},
-    "xUsername": {"type": "string"},
-    "score": {"type": "number"},
-    "postIds": {"type": "list", "schema": {"type": "string"}},
-    "messageIds": {"type": "list", "schema": {"type": "string"}},
-}
+    async def check_db(self) -> None:
+        try:
+            await self.client.admin.command("ping")
+            print("Pinged your deployment. You successfully connected to MongoDB!")
+        except Exception as e:
+            print(e)
+            sys.exit(1)
 
-db = client[COLLECTION_NAME]
-BANNED_COLLECTION = db["banned"]
-DROPS_COLLECTION = db["drops"]
+    async def insert_banned(self, xUserId: str) -> None:
+        existing = await self.BANNED_COLLECTION.find_one({"xUserId": xUserId})
+        if existing:
+            return
+        banned = {"xUserId": xUserId}
+        await self.BANNED_COLLECTION.insert_one(banned)
 
+    async def insert_drop(self, xUserId: str, xUsername: str) -> None:
+        scores = {
+            "xUserId": xUserId,
+            "xUsername": xUsername,
+            "score": 0,
+            "postIds": [],
+            "messageIds": [],
+        }
+        await self.DROPS_COLLECTION.insert_one(scores)
 
-class BannedSchema(TypedDict):
-    xUserId: str
+    async def update_drop_score(self, xUserId: str, score: int) -> None:
+        await self.DROPS_COLLECTION.update_one(
+            {"xUserId": xUserId}, {"$set": {"score": score}}, upsert=True
+        )
 
+    async def update_drop_posts(self, xUserId: str, postId: str) -> None:
+        await self.DROPS_COLLECTION.update_one(
+            {"xUserId": xUserId}, {"$push": {"postIds": postId}}, upsert=True
+        )
 
-class DropsSchema(TypedDict):
-    xUserId: str
-    xUsername: str
-    score: int
-    postIds: list[str]
-    messageIds: list[int]
+    async def update_drop_messages(self, xUserId: str, messageId: int) -> None:
+        await self.DROPS_COLLECTION.update_one(
+            {"xUserId": xUserId}, {"$push": {"messageIds": messageId}}, upsert=True
+        )
 
+    async def get_drop(self, xUserId: str):
+        return await self.DROPS_COLLECTION.find_one({"xUserId": xUserId})
 
-async def insert_banned(xUserId: str):
-    existing = BANNED_COLLECTION.find_one({"xUserId": xUserId})
-    if existing:
-        return
-    banned: BannedSchema = {"xUserId": xUserId}
-    BANNED_COLLECTION.insert_one(banned)
+    async def delete_drop(self, xUserId: str) -> None:
+        await self.DROPS_COLLECTION.delete_one({"xUserId": xUserId})
 
+    async def check_drop(self, xUserId: str) -> bool:
+        return await self.DROPS_COLLECTION.find_one({"xUserId": xUserId}) is not None
 
-async def insert_drop(xUserId: str, xUsername: str):
-    scores: DropsSchema = {
-        "xUserId": xUserId,
-        "xUsername": xUsername,
-        "score": 0,
-        "postIds": [],
-        "messageIds": [],
-    }
-    DROPS_COLLECTION.insert_one(scores)
-
-
-async def update_drop_score(xUserId: str, score: int):
-    DROPS_COLLECTION.update_one(
-        {"xUserId": xUserId}, {"$set": {"score": score}}, upsert=True
-    )
-
-
-async def update_drop_posts(xUserId: str, postId: str):
-    DROPS_COLLECTION.update_one(
-        {"xUserId": xUserId}, {"$push": {"postIds": postId}}, upsert=True
-    )
-
-
-async def update_drop_messages(xUserId: str, messageId: int):
-    DROPS_COLLECTION.update_one(
-        {"xUserId": xUserId}, {"$push": {"messageIds": messageId}}, upsert=True
-    )
-
-
-async def get_drop(xUserId: str):
-    return DROPS_COLLECTION.find_one({"xUserId": xUserId})
-
-
-async def check_drop(xUserId: str):
-    return DROPS_COLLECTION.find_one({"xUserId": xUserId}) is not None
-
-
-async def check_banned(xUserId: str):
-    return BANNED_COLLECTION.find_one({"xUserId": xUserId}) is not None
+    async def check_banned(self, xUserId: str) -> bool:
+        return await self.BANNED_COLLECTION.find_one({"xUserId": xUserId}) is not None
