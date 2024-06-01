@@ -3,10 +3,11 @@ from solders.pubkey import Pubkey
 import aiohttp
 import asyncio
 from aiogram import Bot
+from typing import Optional
 import logging
 
 
-def extract_url_and_validate_mint_address(text: str) -> str | None:
+def extract_url_and_validate_mint_address(text: str) -> Optional[str]:
     url_pattern = re.compile(r"https:\/\/(www\.)?pump\.fun\/[A-Za-z0-9]+")
     match = url_pattern.search(text)
 

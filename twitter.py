@@ -15,7 +15,7 @@ from aiogram.types import LinkPreviewOptions
 from aiogram.exceptions import TelegramAPIError
 from os import getenv
 from dotenv import load_dotenv
-from typing import Dict
+from typing import Dict, Optional
 from db import MongoDB
 
 load_dotenv()
@@ -55,7 +55,7 @@ def determine_topic_id(follower_count: int) -> int:
         return 3
 
 
-async def fetch_data(session: aiohttp.ClientSession) -> Dict | None:
+async def fetch_data(session: aiohttp.ClientSession) -> Optional[Dict]:
     logging.info("Fetching data...")
     try:
         async with session.get(URL, headers=HEADERS, params=QUERY) as response:
@@ -68,7 +68,7 @@ async def fetch_data(session: aiohttp.ClientSession) -> Dict | None:
 
 async def fetch_data_continuation(
     session: aiohttp.ClientSession, continuation: str
-) -> Dict | None:
+) -> Optional[Dict]:
     logging.info("Fetching continuation data...")
     cont_query = QUERY.copy()
     cont_query["continuation_token"] = continuation
