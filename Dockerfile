@@ -7,7 +7,7 @@ WORKDIR /app
 ADD . /app
 
 # Install any needed packages specified in depends.txt
-RUN pip install --no-cache-dir -r depends.txt
+RUN pip install -r depends.txt
 
 # Run main.py when the container launches
 CMD ["python", "main.py"]

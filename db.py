@@ -22,11 +22,11 @@ except Exception as e:
     sys.exit(1)
 
 banned_schema = {
-    "xUserId": {"type": "string"},
+    "xUserId": {"type": "string", "unique": True},
 }
 
 scores_schema = {
-    "xUserId": {"type": "string"},
+    "xUserId": {"type": "string", "unique": True},
     "score": {"type": "number"},
 }
 
@@ -45,6 +45,9 @@ class ScoresSchema(TypedDict):
 
 
 async def insert_banned(xUserId: str):
+    existing = BANNED_COLLECTION.find_one({"xUserId": xUserId})
+    if existing:
+        return
     banned: BannedSchema = {"xUserId": xUserId}
     BANNED_COLLECTION.insert_one(banned)
 
