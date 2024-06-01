@@ -24,6 +24,7 @@ INTERVAL = 10  # seconds
 LATEST = int(time.time() - 60 * 1)
 START_DATE = time.strftime("%Y-%m-%d", time.gmtime(LATEST))
 TASKS: dict[int, asyncio.Task] = {}
+LOGGER = logging.getLogger(__name__)
 
 URL = "https://twitter154.p.rapidapi.com/search/search"
 
@@ -56,20 +57,20 @@ def determine_topic_id(follower_count: int) -> int:
 
 
 async def fetch_data(session: aiohttp.ClientSession) -> Optional[Dict]:
-    logging.info("Fetching data...")
+    LOGGER.info("Fetching data...")
     try:
         async with session.get(URL, headers=HEADERS, params=QUERY) as response:
             data = await response.json()
             return data
     except Exception as e:
-        logging.error(f"Error fetching data: {e}")
+        LOGGER.error(f"Error fetching data: {e}")
         return None
 
 
 async def fetch_data_continuation(
     session: aiohttp.ClientSession, continuation: str
 ) -> Optional[Dict]:
-    logging.info("Fetching continuation data...")
+    LOGGER.info("Fetching continuation data...")
     cont_query = QUERY.copy()
     cont_query["continuation_token"] = continuation
     try:
@@ -77,7 +78,7 @@ async def fetch_data_continuation(
             data = await response.json()
             return data
     except Exception as e:
-        logging.error(f"Error fetching continuation data: {e}")
+        LOGGER.error(f"Error fetching continuation data: {e}")
         return None
 
 
@@ -134,14 +135,14 @@ async def send_tweet(
             await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
             return
         except TelegramAPIError as e:
-            logging.error(f"Failed to send message: {e}")
+            LOGGER.error(f"Failed to send message: {e}")
             attempts += 1
             await asyncio.sleep(1)
 
 
 async def process_tweet(tweet: Dict, chat_id: int, bot: Bot, db: MongoDB) -> None:
     if await db.check_banned(tweet["user"]["user_id"]):
-        logging.info(f"User {tweet['user']['user_id']} is banned")
+        LOGGER.info(f"User {tweet['user']['user_id']} is banned")
         return
 
     if await db.check_drop(tweet["user"]["user_id"]):
@@ -155,7 +156,7 @@ async def process_tweet(tweet: Dict, chat_id: int, bot: Bot, db: MongoDB) -> Non
 
     topic_id = determine_topic_id(tweet["user"]["follower_count"])
 
-    logging.info(f"New tweet found: {tweet['tweet_id']}")
+    LOGGER.info(f"New tweet found: {tweet['tweet_id']}")
     await send_tweet(tweet, chat_id, topic_id, bot, db)
     await asyncio.sleep(1)
 
@@ -171,7 +172,7 @@ async def scheduled_function(
             data = await fetch_data(session)
 
             if not data or not data.get("results"):
-                logging.error("No results found.")
+                LOGGER.error("No results found.")
                 continue
 
             new_latest = data["results"][0]["timestamp"]
@@ -185,9 +186,9 @@ async def scheduled_function(
             LATEST = new_latest
 
         except Exception as e:
-            logging.error(f"An error occurred: {e}")
+            LOGGER.error(f"An error occurred: {e}")
 
-        logging.info(f"Latest Timestamp: {LATEST}. Sleeping...")
+        LOGGER.info(f"Latest Timestamp: {LATEST}. Sleeping...")
         await asyncio.sleep(INTERVAL)
 
 
@@ -202,7 +203,7 @@ async def run(chat_id: int, bot: Bot, db: MongoDB) -> None:
             await bot.send_message(chat_id, "Starting Twitter scrapper...")
             await task
         except asyncio.CancelledError:
-            logging.info(f"Task for chat_id {chat_id} was cancelled")
+            LOGGER.info(f"Task for chat_id {chat_id} was cancelled")
 
 
 async def stop(chat_id: int, bot: Bot) -> None:

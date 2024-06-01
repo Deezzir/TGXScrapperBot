@@ -3,8 +3,10 @@ from os import getenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
+LOGGER = logging.getLogger(__name__)
 
 
 class MongoDB:
@@ -17,7 +19,7 @@ class MongoDB:
         self.DROPS_COLLECTION = None
 
     async def initialize(self):
-        print("Connecting to MongoDB...")
+        LOGGER.info("Connecting to MongoDB...")
         self.client = AsyncIOMotorClient(self.MONGO_URI, server_api=ServerApi("1"))
         self.db = self.client[self.COLLECTION_NAME]
         self.BANNED_COLLECTION = self.db["banned"]
@@ -28,9 +30,11 @@ class MongoDB:
     async def check_db(self) -> None:
         try:
             await self.client.admin.command("ping")
-            print("Pinged your deployment. You successfully connected to MongoDB!")
+            LOGGER.info(
+                "Pinged your deployment. You successfully connected to MongoDB!"
+            )
         except Exception as e:
-            print(e)
+            LOGGER.error(e)
             sys.exit(1)
 
     async def insert_banned(self, xUserId: str) -> None:

@@ -6,6 +6,8 @@ from aiogram import Bot
 from typing import Optional
 import logging
 
+LOGGER = logging.getLogger(__name__)
+
 
 def extract_url_and_validate_mint_address(text: str) -> Optional[str]:
     url_pattern = re.compile(r"https:\/\/(www\.)?pump\.fun\/[A-Za-z0-9]+")
@@ -36,7 +38,7 @@ async def expand_url(short_url: str) -> str:
             async with session.head(short_url, allow_redirects=True) as response:
                 return str(response.url)
     except aiohttp.ClientError as e:
-        logging.error(f"Error expanding URL: {e}")
+        LOGGER.error(f"Error expanding URL: {e}")
         return short_url
 
 
@@ -62,7 +64,7 @@ async def delete_message(bot: Bot, chat_id: int, messages: list[int]) -> bool:
             await bot.delete_messages(chat_id, messages)
             return True
         except Exception as e:
-            logging.error(f"Error deleting message: {e}")
+            LOGGER.error(f"Error deleting message: {e}")
             attempts += 1
 
     return False

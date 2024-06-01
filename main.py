@@ -23,6 +23,8 @@ TITLE = "🔰 XScrapper V1.0"
 DESCRIPTION = "The ultimate bot for scrapping Pump.fun drops from Twitter"
 TOKEN = getenv("BOT_TOKEN", "")
 DB = db.MongoDB()
+LOGGER = logging.getLogger(__name__)
+
 
 COMMANDS = {
     "setup": "Setup the chat",
@@ -112,7 +114,7 @@ async def callback_block_handler(query: CallbackQuery) -> None:
 
     query_parts = query.data.split(":")
     if len(query_parts) != 3:
-        logging.error("Invalid query data format")
+        LOGGER.error("Invalid query data format")
         return None
     action, username, user_id = query_parts
 
