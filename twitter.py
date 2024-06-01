@@ -148,8 +148,9 @@ async def scheduled_function(session: aiohttp.ClientSession, chat_id: int, bot: 
                     await db.insert_drop(
                         tweet["user"]["user_id"],
                         tweet["user"]["username"],
-                        tweet["tweet_id"],
-                        tweet["message_id"],
+                    )
+                    await db.update_drop_posts(
+                        tweet["user"]["user_id"], tweet["tweet_id"]
                     )
 
                 topic_id = 0

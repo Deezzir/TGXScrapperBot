@@ -58,13 +58,13 @@ async def insert_banned(xUserId: str):
     BANNED_COLLECTION.insert_one(banned)
 
 
-async def insert_drop(xUserId: str, xUsername: str, posrId: str, messageId: int):
+async def insert_drop(xUserId: str, xUsername: str):
     scores: DropsSchema = {
         "xUserId": xUserId,
         "xUsername": xUsername,
         "score": 0,
-        "postIds": [posrId],
-        "messageIds": [messageId],
+        "postIds": [],
+        "messageIds": [],
     }
     DROPS_COLLECTION.insert_one(scores)
 
