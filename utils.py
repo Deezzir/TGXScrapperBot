@@ -17,7 +17,6 @@ def extract_url_and_validate_mint_address(text: str) -> Optional[str]:
         return None
 
     url = match.group(0)
-
     mint_address = url.split("/")[-1]
 
     try:

@@ -85,25 +85,27 @@ async def fetch_data_continuation(
 async def send_tweet(
     tweet: Dict, chat_id: int, topic_id: int, bot: Bot, db: MongoDB
 ) -> None:
+    user_id = tweet["user"]["user_id"]
+    user_name = tweet["user"]["username"]
+    tweet_id = tweet["tweet_id"]
+
     sanitazed_text = await utils.replace_short_urls(tweet["text"])
     pump_url = utils.extract_url_and_validate_mint_address(sanitazed_text)
-    post_url = (
-        f"https://twitter.com/{tweet['user']['username']}/status/{tweet['tweet_id']}"
-    )
+    post_url = f"https://twitter.com/{user_name}/status/{tweet_id}"
 
     keyboard_buttons = [
         [
             InlineKeyboardButton(
                 text="Tweet",
-                url=f"https://twitter.com/{tweet['user']['username']}/status/{tweet['tweet_id']}",
+                url=f"https://twitter.com/{user_name}/status/{tweet_id}",
             ),
             InlineKeyboardButton(
                 text="Profile",
-                url=f"https://x.com/{tweet['user']['username']}",
+                url=f"https://x.com/{user_name}",
             ),
             InlineKeyboardButton(
                 text="Block",
-                callback_data=f"block:{tweet['user']['username']}:{tweet['user']['user_id']}",
+                callback_data=f"block:{user_name}:{user_id}",
             ),
         ],
     ]
@@ -141,22 +143,28 @@ async def send_tweet(
 
 
 async def process_tweet(tweet: Dict, chat_id: int, bot: Bot, db: MongoDB) -> None:
-    if await db.check_banned(tweet["user"]["user_id"]):
-        LOGGER.info(f"User {tweet['user']['user_id']} is banned")
+    user_id = tweet["user"]["user_id"]
+    user_name = tweet["user"]["username"]
+    tweet_id = tweet["tweet_id"]
+
+    if await db.check_banned(user_id):
+        LOGGER.info(f"User {user_id} is banned")
         return
 
-    if await db.check_drop(tweet["user"]["user_id"]):
-        await db.update_drop_posts(tweet["user"]["user_id"], tweet["tweet_id"])
+    drop = await db.get_drop(user_id)
+
+    if drop:
+        if tweet_id not in drop.get(["postIds"], []):
+            await db.update_drop_posts(user_id, tweet_id)
+        else:
+            LOGGER.info(f"Tweet already exists: {tweet_id}")
+            return
     else:
-        await db.insert_drop(
-            tweet["user"]["user_id"],
-            tweet["user"]["username"],
-        )
-        await db.update_drop_posts(tweet["user"]["user_id"], tweet["tweet_id"])
+        await db.insert_drop(user_id, user_name, tweet_id)
 
     topic_id = determine_topic_id(tweet["user"]["follower_count"])
 
-    LOGGER.info(f"New tweet found: {tweet['tweet_id']}")
+    LOGGER.info(f"New tweet found: {tweet_id}")
     await send_tweet(tweet, chat_id, topic_id, bot, db)
     await asyncio.sleep(1)
 
@@ -177,7 +185,7 @@ async def scheduled_function(
 
             new_latest = data["results"][0]["timestamp"]
 
-            for tweet in data["results"]:
+            for tweet in data.get("results", []):
                 if tweet["timestamp"] <= LATEST:
                     break
 
@@ -211,7 +219,7 @@ async def stop(chat_id: int, bot: Bot) -> None:
     if task:
         await bot.send_message(chat_id, "Stopping Twitter scrapper...")
         task.cancel()
-        await task  # Ensure the task is properly awaited and any exceptions are handled
+        await task
         del TASKS[chat_id]
     else:
         await bot.send_message(chat_id, "Twitter scrapper is not running")

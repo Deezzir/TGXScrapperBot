@@ -4,6 +4,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
 import logging
+from typing import Optional
 
 load_dotenv()
 LOGGER = logging.getLogger(__name__)
@@ -44,12 +45,14 @@ class MongoDB:
         banned = {"xUserId": xUserId}
         await self.BANNED_COLLECTION.insert_one(banned)
 
-    async def insert_drop(self, xUserId: str, xUsername: str) -> None:
+    async def insert_drop(
+        self, xUserId: str, xUsername: str, postId: Optional[str] = None
+    ) -> None:
         scores = {
             "xUserId": xUserId,
             "xUsername": xUsername,
             "score": 0,
-            "postIds": [],
+            "postIds": [postId] if postId else [],
             "messageIds": [],
         }
         await self.DROPS_COLLECTION.insert_one(scores)

@@ -77,6 +77,17 @@ async def command_run_handler(message: Message) -> None:
     """
     if message.chat.is_forum:
         chat_id = message.chat.id
+
+        if not message.from_user:
+            return
+
+        member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
+        if member.status not in ["creator", "administrator"]:
+            await message.answer(
+                "You must be an admin to start the scrapper.", show_alert=True
+            )
+            return
+
         asyncio.create_task(twitter.run(chat_id, BOT, DB))
     else:
         await message.reply("This command is only available in groups with topics.")
@@ -88,6 +99,16 @@ async def command_stop_handler(message: Message) -> None:
     This handler receives messages with `/stop` command
     """
     chat_id = message.chat.id
+    if not message.from_user:
+        return
+
+    member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
+    if member.status not in ["creator", "administrator"]:
+        await message.answer(
+            "You must be an admin to stop the scrapper.", show_alert=True
+        )
+        return
+
     await twitter.stop(chat_id, BOT)
 
 
