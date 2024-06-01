@@ -154,7 +154,7 @@ async def process_tweet(tweet: Dict, chat_id: int, bot: Bot, db: MongoDB) -> Non
     drop = await db.get_drop(user_id)
 
     if drop:
-        if tweet_id not in drop.get(["postIds"], []):
+        if tweet_id not in drop.get("postIds", []):
             await db.update_drop_posts(user_id, tweet_id)
         else:
             LOGGER.info(f"Tweet already exists: {tweet_id}")
