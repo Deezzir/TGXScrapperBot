@@ -25,23 +25,29 @@ banned_schema = {
     "xUserId": {"type": "string", "unique": True},
 }
 
-scores_schema = {
+drops_schema = {
     "xUserId": {"type": "string", "unique": True},
+    "xUsername": {"type": "string"},
     "score": {"type": "number"},
+    "postIds": {"type": "list", "schema": {"type": "string"}},
+    "messageIds": {"type": "list", "schema": {"type": "string"}},
 }
 
 db = client[COLLECTION_NAME]
 BANNED_COLLECTION = db["banned"]
-SCORES_COLLECTION = db["scores"]
+DROPS_COLLECTION = db["drops"]
 
 
 class BannedSchema(TypedDict):
     xUserId: str
 
 
-class ScoresSchema(TypedDict):
+class DropsSchema(TypedDict):
     xUserId: str
+    xUsername: str
     score: int
+    postIds: list[str]
+    messageIds: list[int]
 
 
 async def insert_banned(xUserId: str):
@@ -52,9 +58,41 @@ async def insert_banned(xUserId: str):
     BANNED_COLLECTION.insert_one(banned)
 
 
-async def insert_update_score(xUserId: str, score: int):
-    scores: ScoresSchema = {"xUserId": xUserId, "score": score}
-    SCORES_COLLECTION.update_one({"xUserId": xUserId}, {"$set": scores}, upsert=True)
+async def insert_drop(xUserId: str, xUsername: str, posrId: str, messageId: int):
+    scores: DropsSchema = {
+        "xUserId": xUserId,
+        "xUsername": xUsername,
+        "score": 0,
+        "postIds": [posrId],
+        "messageIds": [messageId],
+    }
+    DROPS_COLLECTION.insert_one(scores)
+
+
+async def update_drop_score(xUserId: str, score: int):
+    DROPS_COLLECTION.update_one(
+        {"xUserId": xUserId}, {"$set": {"score": score}}, upsert=True
+    )
+
+
+async def update_drop_posts(xUserId: str, postId: str):
+    DROPS_COLLECTION.update_one(
+        {"xUserId": xUserId}, {"$push": {"postIds": postId}}, upsert=True
+    )
+
+
+async def update_drop_messages(xUserId: str, messageId: int):
+    DROPS_COLLECTION.update_one(
+        {"xUserId": xUserId}, {"$push": {"messageIds": messageId}}, upsert=True
+    )
+
+
+async def get_drop(xUserId: str):
+    return DROPS_COLLECTION.find_one({"xUserId": xUserId})
+
+
+async def check_drop(xUserId: str):
+    return DROPS_COLLECTION.find_one({"xUserId": xUserId}) is not None
 
 
 async def check_banned(xUserId: str):

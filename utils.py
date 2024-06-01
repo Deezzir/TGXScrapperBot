@@ -2,6 +2,7 @@ import re
 from solders.pubkey import Pubkey
 import aiohttp
 import asyncio
+from aiogram import Bot
 import logging
 
 
@@ -49,3 +50,18 @@ async def replace_short_urls(text: str):
         text = text.replace(short_url, expanded_url + punctuation)
 
     return text
+
+
+async def delete_message(bot: Bot, chat_id: int, messages: list[int]):
+    attempts = 0
+    max_attempts = 3
+
+    while attempts < max_attempts:
+        try:
+            await bot.delete_messages(chat_id, messages)
+            return True
+        except Exception as e:
+            logging.error(f"Error deleting message: {e}")
+            attempts += 1
+
+    return False

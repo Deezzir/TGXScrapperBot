@@ -100,13 +100,14 @@ async def send_tweet(tweet, chat_id: int, topic_id: int, bot: Bot):
 
     while True:
         try:
-            await bot.send_message(
+            msg = await bot.send_message(
                 chat_id=chat_id,
                 message_thread_id=topic_id,
                 text=payload,
                 parse_mode="HTML",
                 reply_markup=keyboard,
             )
+            await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
             break
         except TelegramAPIError as e:
             logging.error(f"Failed to send message: {e}")
@@ -138,6 +139,18 @@ async def scheduled_function(session: aiohttp.ClientSession, chat_id: int, bot: 
                 if await db.check_banned(tweet["user"]["user_id"]):
                     logging.info(f"User {tweet['user']['user_id']} is banned")
                     continue
+
+                if await db.check_drop(tweet["user"]["user_id"]):
+                    await db.update_drop_posts(
+                        tweet["user"]["user_id"], tweet["tweet_id"]
+                    )
+                else:
+                    await db.insert_drop(
+                        tweet["user"]["user_id"],
+                        tweet["user"]["username"],
+                        tweet["tweet_id"],
+                        tweet["message_id"],
+                    )
 
                 topic_id = 0
                 if tweet["user"]["follower_count"] > 500_000:

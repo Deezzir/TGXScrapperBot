@@ -15,6 +15,7 @@ from aiogram.types import (
     CallbackQuery,
 )
 import db
+import utils
 
 load_dotenv()
 
@@ -117,12 +118,17 @@ async def callback_block_handler(query: CallbackQuery) -> None:
     await query.answer(f"Blocking {username}...")
     await db.insert_banned(user_id)
 
-    await bot.edit_message_text(
-        chat_id=query.message.chat.id,
-        message_id=query.message.message_id,
-        text=f"<b>{username.upper()} IS BANNED</b>",
-        parse_mode=ParseMode.HTML,
-    )
+    drop = await db.get_drop(user_id)
+    if drop:
+        await utils.delete_message(bot, query.message.chat.id, drop["messageIds"])
+
+    if isinstance(query.message, Message):
+        await bot.send_message(
+            chat_id=query.message.chat.id,
+            message_thread_id=query.message.message_thread_id,
+            text=f"<b>{username.upper()} IS BANNED</b>",
+            parse_mode=ParseMode.HTML,
+        )
 
 
 async def main() -> None:
