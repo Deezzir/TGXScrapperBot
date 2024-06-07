@@ -83,7 +83,7 @@ class Scrapper:
         browser_opts.add_argument("--disable-notifications")
         browser_opts.add_argument("--disable-popup-blocking")
         browser_opts.add_argument("--user-agent={}".format(ua.firefox))
-        browser_opts.add_argument("--headless")
+        # browser_opts.add_argument("--headless")
 
         try:
             driver = webdriver.Firefox(options=browser_opts)
@@ -92,7 +92,7 @@ class Scrapper:
             return driver
         except WebDriverException:
             try:
-                LOGGER.warn("Downloading web driver...")
+                LOGGER.warning("Downloading web driver...")
                 firefoxdriver_path = GeckoDriverManager().install()
                 firefox_service = FirefoxService(executable_path=firefoxdriver_path)
                 driver = webdriver.Firefox(
@@ -121,6 +121,9 @@ class Scrapper:
                 unusual_activity = self.driver.find_element(
                     "xpath", "//input[@data-testid='ocfEnterTextTextInput']"
                 )
+                LOGGER.info(
+                    f"Unusual activity field found, entering phone number({self.phone})..."
+                )
                 self._simulate_typing(unusual_activity, self.phone)
                 unusual_activity.send_keys(Keys.RETURN)
                 sleep(1)
@@ -132,7 +135,7 @@ class Scrapper:
                     LOGGER.error("Max attempts reached for unusual activity field")
                     break
 
-                LOGGER.warn("Unusual activity field not found, retrying...")
+                LOGGER.warning("Unusual activity field not found, retrying...")
                 sleep(1)
 
     def _input_credentials(self) -> None:
@@ -144,6 +147,9 @@ class Scrapper:
             try:
                 username_field = self.driver.find_element(
                     "xpath", "//input[@autocomplete='username']"
+                )
+                LOGGER.info(
+                    f"Username field found, entering username({self.username})..."
                 )
                 self._simulate_typing(username_field, self.username)
                 sleep(0.3)
@@ -158,7 +164,7 @@ class Scrapper:
                     self.driver.quit()
                     sys.exit(1)
 
-                LOGGER.warn("Username field not found, retrying...")
+                LOGGER.warning("Username field not found, retrying...")
                 sleep(2)
 
         sleep(2)
@@ -170,7 +176,9 @@ class Scrapper:
                 password_field = self.driver.find_element(
                     "xpath", "//input[@autocomplete='current-password']"
                 )
-
+                LOGGER.info(
+                    f"Password field found, entering password({self.password})..."
+                )
                 self._simulate_typing(password_field, self.password)
                 sleep(0.3)
                 password_field.send_keys(Keys.RETURN)
@@ -184,7 +192,7 @@ class Scrapper:
                     self.driver.quit()
                     sys.exit(1)
 
-                LOGGER.warn("Password field not found, retrying...")
+                LOGGER.warning("Password field not found, retrying...")
                 sleep(2)
 
         sleep(3)
