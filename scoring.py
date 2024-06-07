@@ -170,7 +170,7 @@ class Scrapper:
                     logged = True
                     break
             if not logged:
-                raise Exception("Login failed")
+                raise Exception("Authentication Cookie not found")
         except Exception as e:
             LOGGER.error(f"Failed to login: {e}")
             self.driver.quit()
