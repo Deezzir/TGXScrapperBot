@@ -27,6 +27,7 @@ X_LOGIN_URL = "https://twitter.com/i/flow/login"
 LOGGER = logging.getLogger(__name__)
 USERNAME = getenv("X_USERNAME", "")
 PASSWORD = getenv("X_PASSWORD", "")
+PHONE = getenv("X_PHONE", "")
 
 SCORES = {
     "wallstreetbets": 1,
@@ -66,6 +67,7 @@ class Scrapper:
 
         self.username = USERNAME
         self.password = PASSWORD
+        self.phone = PHONE
         self.driver = self._init_driver()
 
     def _init_driver(self) -> Optional[webdriver.Firefox]:
@@ -110,6 +112,29 @@ class Scrapper:
         sleep(3)
         self._input_credentials()
 
+    def _input_unusual_activity(self):
+        max_attempts = 2
+        attempts = 0
+
+        while attempts < max_attempts:
+            try:
+                unusual_activity = self.driver.find_element(
+                    "xpath", "//input[@data-testid='ocfEnterTextTextInput']"
+                )
+                self._simulate_typing(unusual_activity, self.phone)
+                unusual_activity.send_keys(Keys.RETURN)
+                sleep(1)
+                break
+            except NoSuchElementException:
+                attempts += 1
+
+                if attempts == max_attempts:
+                    LOGGER.error("Max attempts reached for unusual activity field")
+                    break
+
+                LOGGER.warn("Unusual activity field not found, retrying...")
+                sleep(1)
+
     def _input_credentials(self) -> None:
         max_attempts = 5
         attempts = 0
@@ -121,7 +146,7 @@ class Scrapper:
                     "xpath", "//input[@autocomplete='username']"
                 )
                 self._simulate_typing(username_field, self.username)
-                print(self.username)
+                sleep(0.3)
                 username_field.send_keys(Keys.RETURN)
                 sleep(1)
                 break
@@ -147,7 +172,6 @@ class Scrapper:
                 )
 
                 self._simulate_typing(password_field, self.password)
-                print(self.password)
                 sleep(0.3)
                 password_field.send_keys(Keys.RETURN)
                 sleep(3)
@@ -163,14 +187,15 @@ class Scrapper:
                 LOGGER.warn("Password field not found, retrying...")
                 sleep(2)
 
-        sleep(5)
+        sleep(3)
+        self._input_unusual_activity()
 
         try:
             cookies = self.driver.get_cookies()
             logged = False
 
             for cookie in cookies:
-                print(f"Cookie found: {cookie['name']}")
+                print(f"Cookie found: {cookie['name']}")  # debug
                 if cookie["name"] == "auth_token":
                     logged = True
                     break
