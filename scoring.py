@@ -83,7 +83,7 @@ class Scrapper:
         browser_opts.add_argument("--disable-notifications")
         browser_opts.add_argument("--disable-popup-blocking")
         browser_opts.add_argument("--user-agent={}".format(ua.firefox))
-        # browser_opts.add_argument("--headless")
+        browser_opts.add_argument("--headless")
 
         try:
             driver = webdriver.Firefox(options=browser_opts)
