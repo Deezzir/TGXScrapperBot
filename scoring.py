@@ -172,7 +172,7 @@ class Scrapper:
             if not logged:
                 raise Exception("Login failed")
         except Exception as e:
-            LOGGER.error(f"Failing to login: {e}")
+            LOGGER.error(f"Failed to login: {e}")
             self.driver.quit()
             sys.exit(1)
 

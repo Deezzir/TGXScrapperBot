@@ -15,7 +15,7 @@ RUN apt-get update && \
 # Install Geckodriver
 RUN apt-get update && \
     apt-get install -y wget && \
-    wget https://github.com/mozilla/geckodriver/releases/download/v0.33.0/geckodriver-v0.33.0-linux64.tar.gz && \
+    wget https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux64.tar.gz && \
     tar -xzf geckodriver-v0.33.0-linux64.tar.gz -C /usr/local/bin && \
     rm geckodriver-v0.33.0-linux64.tar.gz && \
     apt-get remove -y wget && \
