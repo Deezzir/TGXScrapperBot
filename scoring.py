@@ -113,7 +113,7 @@ class Scrapper:
         self._input_credentials()
 
     def _input_unusual_activity(self):
-        max_attempts = 2
+        max_attempts = 5
         attempts = 0
 
         while attempts < max_attempts:
@@ -136,7 +136,7 @@ class Scrapper:
                     break
 
                 LOGGER.warning("Unusual activity field not found, retrying...")
-                sleep(1)
+                sleep(2)
 
     def _input_credentials(self) -> None:
         max_attempts = 5
