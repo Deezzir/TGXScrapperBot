@@ -15,16 +15,19 @@ from aiogram.types import LinkPreviewOptions
 from aiogram.exceptions import TelegramAPIError
 from os import getenv
 from dotenv import load_dotenv
+from scoring import Scrapper
 from typing import Dict, Optional
 from db import MongoDB
+import tagall
 
 load_dotenv()
 
-INTERVAL = 10  # seconds
+INTERVAL = 2  # seconds
 LATEST = int(time.time() - 60 * 1)
 START_DATE = time.strftime("%Y-%m-%d", time.gmtime(LATEST))
 TASKS: dict[int, asyncio.Task] = {}
 LOGGER = logging.getLogger(__name__)
+TAG_ALL = tagall.TagAll()
 
 URL = "https://twitter154.p.rapidapi.com/search/search"
 
@@ -45,15 +48,35 @@ HEADERS = {
 }
 
 
-def determine_topic_id(follower_count: int) -> int:
+def determine_topic_id(follower_count: int) -> tuple[int, bool]:
+    topic_id = 0
     if follower_count > 1_000_000:
-        return 6
+        topic_id = 6
     elif follower_count > 100_000:
-        return 5
+        topic_id = 5
     elif follower_count > 10_000:
-        return 4
+        topic_id = 4
     else:
+        topic_id = 3
+
+    return (topic_id, True if follower_count > 900 else False)
+
+
+def determine_resend_number(score: float) -> int:
+    if score >= 12:
+        return 4
+    elif score >= 9:
         return 3
+    elif score >= 6:
+        return 2
+    elif score >= 3:
+        return 1
+    else:
+        return 0
+
+
+async def get_mentions_payload(chat_id: int) -> str:
+    return await TAG_ALL.tagall(chat_id)
 
 
 async def fetch_data(session: aiohttp.ClientSession) -> Optional[Dict]:
@@ -83,7 +106,7 @@ async def fetch_data_continuation(
 
 
 async def send_tweet(
-    tweet: Dict, chat_id: int, topic_id: int, bot: Bot, db: MongoDB
+    tweet: Dict, score: float, chat_id: int, topic_id: int, bot: Bot, db: MongoDB
 ) -> None:
     user_id = tweet["user"]["user_id"]
     user_name = tweet["user"]["username"]
@@ -119,6 +142,7 @@ async def send_tweet(
         f"<b>NEW TWEET</b>\n\n"
         f"{await utils.replace_short_urls(tweet['text'])}\n\n"
         f"Followers: {tweet['user']['follower_count']}\n"
+        f"Trust Score: {score}"
     )
 
     attempts = 0
@@ -135,20 +159,46 @@ async def send_tweet(
                 link_preview_options=(LinkPreviewOptions(url=post_url)),
             )
             await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
-            return
+            break
         except TelegramAPIError as e:
             LOGGER.error(f"Failed to send message: {e}")
             attempts += 1
             await asyncio.sleep(1)
 
+    resend_number = determine_resend_number(score)
+    if resend_number == 0:
+        return
 
-async def process_tweet(tweet: Dict, chat_id: int, bot: Bot, db: MongoDB) -> None:
+    attempts = 0
+    mentions = await get_mentions_payload(chat_id)
+    payload = mentions + payload
+    for _ in range(resend_number):
+        while attempts < max_attempts:
+            try:
+                msg = await bot.send_message(
+                    chat_id=chat_id,
+                    text=payload,
+                    parse_mode="HTML",
+                    reply_markup=keyboard,
+                    link_preview_options=(LinkPreviewOptions(url=post_url)),
+                )
+                attempts = 0
+                break
+            except TelegramAPIError as e:
+                LOGGER.error(f"Failed to send message: {e}")
+                attempts += 1
+                await asyncio.sleep(1)
+
+
+async def process_tweet(
+    tweet: Dict, chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper
+) -> None:
     user_id = tweet["user"]["user_id"]
     user_name = tweet["user"]["username"]
     tweet_id = tweet["tweet_id"]
 
     if await db.check_banned(user_id):
-        LOGGER.info(f"User {user_id} is banned")
+        LOGGER.info(f"User {user_name} is banned")
         return
 
     drop = await db.get_drop(user_id)
@@ -162,15 +212,25 @@ async def process_tweet(tweet: Dict, chat_id: int, bot: Bot, db: MongoDB) -> Non
     else:
         await db.insert_drop(user_id, user_name, tweet_id)
 
-    topic_id = determine_topic_id(tweet["user"]["follower_count"])
+    topic_id, to_score = determine_topic_id(tweet["user"]["follower_count"])
+    score = 0.0
+    if to_score:
+        LOGGER.info(f"Calculating score for {user_name}")
+        score = sc.calc_score(user_name)
+        LOGGER.info(f"Score for {user_name}: {score}")
+        await db.update_drop_score(user_id, score)
 
     LOGGER.info(f"New tweet found: {tweet_id}")
-    await send_tweet(tweet, chat_id, topic_id, bot, db)
+    await send_tweet(tweet, score, chat_id, topic_id, bot, db)
     await asyncio.sleep(1)
 
 
 async def scheduled_function(
-    session: aiohttp.ClientSession, chat_id: int, bot: Bot, db: MongoDB
+    session: aiohttp.ClientSession,
+    chat_id: int,
+    bot: Bot,
+    db: MongoDB,
+    sc: Scrapper,
 ) -> None:
     global LATEST
     global INTERVAL
@@ -189,7 +249,7 @@ async def scheduled_function(
                 if tweet["timestamp"] <= LATEST:
                     break
 
-                await process_tweet(tweet, chat_id, bot, db)
+                await process_tweet(tweet, chat_id, bot, db, sc)
 
             LATEST = new_latest
 
@@ -200,18 +260,20 @@ async def scheduled_function(
         await asyncio.sleep(INTERVAL)
 
 
-async def run(chat_id: int, bot: Bot, db: MongoDB) -> None:
+async def run(chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper) -> None:
     if chat_id in TASKS:
         await bot.send_message(chat_id, "Scrapping is already running")
         return
     async with aiohttp.ClientSession() as session:
-        task = asyncio.create_task(scheduled_function(session, chat_id, bot, db))
+        await TAG_ALL.start()
+        task = asyncio.create_task(scheduled_function(session, chat_id, bot, db, sc))
         TASKS[chat_id] = task
         try:
             await bot.send_message(chat_id, "Starting Twitter scrapper...")
             await task
         except asyncio.CancelledError:
             LOGGER.info(f"Task for chat_id {chat_id} was cancelled")
+            await TAG_ALL.stop()
 
 
 async def stop(chat_id: int, bot: Bot) -> None:

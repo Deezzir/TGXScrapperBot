@@ -51,13 +51,13 @@ class MongoDB:
         scores = {
             "xUserId": xUserId,
             "xUsername": xUsername,
-            "score": 0,
+            "score": 0.0,
             "postIds": [postId] if postId else [],
             "messageIds": [],
         }
         await self.DROPS_COLLECTION.insert_one(scores)
 
-    async def update_drop_score(self, xUserId: str, score: int) -> None:
+    async def update_drop_score(self, xUserId: str, score: float) -> None:
         await self.DROPS_COLLECTION.update_one(
             {"xUserId": xUserId}, {"$set": {"score": score}}, upsert=True
         )

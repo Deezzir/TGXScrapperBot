@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+import re
 from os import getenv
 from dotenv import load_dotenv
 import twitter
@@ -8,6 +9,7 @@ from aiogram import Bot, Dispatcher, html, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
+import scoring
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -20,9 +22,11 @@ import utils
 load_dotenv()
 
 TITLE = "🔰 XScrapper V1.0"
+NAME = "XCryptoScrapperBot"
 DESCRIPTION = "The ultimate bot for scrapping Pump.fun drops from Twitter"
 TOKEN = getenv("BOT_TOKEN", "")
 DB = db.MongoDB()
+SCORER = scoring.Scrapper()
 LOGGER = logging.getLogger(__name__)
 
 
@@ -48,7 +52,7 @@ async def command_start_handler(message: Message) -> None:
     if message.from_user is not None:
         inline_button = InlineKeyboardButton(
             text="Set me as admin",
-            url="https://t.me/XCryptoScrapperBot?startgroup=start&amp;admin=can_invite_users",
+            url=f"https://t.me/{NAME}?startgroup=start&amp;admin=can_invite_users",
             callback_data="add_admin",
         )
         inline_keyboard = InlineKeyboardMarkup(inline_keyboard=[[inline_button]])
@@ -88,9 +92,42 @@ async def command_run_handler(message: Message) -> None:
             )
             return
 
-        asyncio.create_task(twitter.run(chat_id, BOT, DB))
+        asyncio.create_task(twitter.run(chat_id, BOT, DB, SCORER))
     else:
         await message.reply("This command is only available in groups with topics.")
+
+
+# @DISPATCHER.message(Command("forward"))
+# async def command_forward_handler(message: Message) -> None:
+#     """
+#     This handler receives messages with `/forward` command and forwards the message to the chat
+#     """
+#     user_id = message.from_user
+#     if not user_id:
+#         return
+#     if user_id.id != 6514596762:
+#         await message.answer(
+#             "You are not allowed to use this command.", show_alert=True
+#         )
+#         return
+
+#     if message.photo:
+#         if message.caption is None:
+#             return
+#         await BOT.send_photo(
+#             0,
+#             photo=message.photo[-1].file_id,
+#             caption=re.sub(r"^(.*\n){2}", "", message.caption),
+#             message_thread_id=14775,
+#         )
+#     else:
+#         if message.text is None:
+#             return
+#         await BOT.send_message(
+#             0,
+#             text=re.sub(r"^(.*\n){2}", "", message.text),
+#             message_thread_id=14775,
+#         )
 
 
 @DISPATCHER.message(Command("stop"))
@@ -159,6 +196,7 @@ async def callback_block_handler(query: CallbackQuery) -> None:
 
 
 async def main() -> None:
+    SCORER.login()
     await DB.initialize()
     await DISPATCHER.start_polling(BOT)
 
