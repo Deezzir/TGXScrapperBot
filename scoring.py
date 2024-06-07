@@ -161,11 +161,14 @@ class Scrapper:
                 LOGGER.warn("Password field not found, retrying...")
                 sleep(2)
 
+        sleep(5)
+
         try:
             cookies = self.driver.get_cookies()
             logged = False
 
             for cookie in cookies:
+                print(f"Cookie found: {cookie['name']}")
                 if cookie["name"] == "auth_token":
                     logged = True
                     break
