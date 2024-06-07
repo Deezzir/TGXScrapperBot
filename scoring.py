@@ -9,11 +9,17 @@ from time import sleep
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
+from selenium.common.exceptions import (
+    NoSuchElementException,
+    TimeoutException,
+    WebDriverException,
+)
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.common.keys import Keys
 from functools import reduce
 from os import getenv
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver.firefox.service import Service as FirefoxService
 
 load_dotenv()
 
@@ -82,9 +88,21 @@ class Scrapper:
             self.wait = WebDriverWait(driver, 10)
             LOGGER.info("Driver initialized successfully")
             return driver
-        except Exception as e:
-            LOGGER.error(f"Error initializing driver: {e}")
-            sys.exit(1)
+        except WebDriverException:
+            try:
+                LOGGER.warn("Downloading web driver...")
+                firefoxdriver_path = GeckoDriverManager().install()
+                firefox_service = FirefoxService(executable_path=firefoxdriver_path)
+                driver = webdriver.Firefox(
+                    service=firefox_service,
+                    options=browser_opts,
+                )
+
+                LOGGER.info("Driver initialized successfully")
+                return driver
+            except Exception as e:
+                LOGGER.error(f"Error initializing web driver: {e}")
+                sys.exit(1)
 
     def login(self) -> None:
         LOGGER.info("Logging in...")
