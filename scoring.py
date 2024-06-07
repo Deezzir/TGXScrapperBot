@@ -121,6 +121,7 @@ class Scrapper:
                     "xpath", "//input[@autocomplete='username']"
                 )
                 self._simulate_typing(username_field, self.username)
+                print(self.username)
                 username_field.send_keys(Keys.RETURN)
                 sleep(1)
                 break
@@ -146,6 +147,7 @@ class Scrapper:
                 )
 
                 self._simulate_typing(password_field, self.password)
+                print(self.password)
                 sleep(0.3)
                 password_field.send_keys(Keys.RETURN)
                 sleep(3)
