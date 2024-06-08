@@ -200,9 +200,9 @@ async def callback_block_handler(query: CallbackQuery) -> None:
 async def main() -> None:
     SCORER.login()
     await DB.initialize()
-    await TAG_ALL.start()
+    # await TAG_ALL.start()
     await DISPATCHER.start_polling(BOT)
-    await TAG_ALL.stop()
+    # await TAG_ALL.stop()
 
 
 if __name__ == "__main__":
