@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from scoring import Scrapper
 from typing import Dict, Optional
 from db import MongoDB
-import tagall
+from tagall import TagAll
 
 load_dotenv()
 
@@ -27,7 +27,6 @@ LATEST = int(time.time() - 60 * 1)
 START_DATE = time.strftime("%Y-%m-%d", time.gmtime(LATEST))
 TASKS: dict[int, asyncio.Task] = {}
 LOGGER = logging.getLogger(__name__)
-TAG_ALL = tagall.TagAll()
 
 URL = "https://twitter154.p.rapidapi.com/search/search"
 
@@ -170,8 +169,8 @@ async def send_tweet(
         return
 
     attempts = 0
-    mentions = await get_mentions_payload(chat_id)
-    payload = mentions + payload
+    # mentions = await get_mentions_payload(chat_id)
+    # payload = mentions + payload
     for _ in range(resend_number):
         while attempts < max_attempts:
             try:
@@ -231,6 +230,7 @@ async def scheduled_function(
     bot: Bot,
     db: MongoDB,
     sc: Scrapper,
+    tg: TagAll,
 ) -> None:
     global LATEST
     global INTERVAL
@@ -260,12 +260,11 @@ async def scheduled_function(
         await asyncio.sleep(INTERVAL)
 
 
-async def run(chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper) -> None:
+async def run(chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper, tg: ) -> None:
     if chat_id in TASKS:
         await bot.send_message(chat_id, "Scrapping is already running")
         return
     async with aiohttp.ClientSession() as session:
-        await TAG_ALL.start()
         task = asyncio.create_task(scheduled_function(session, chat_id, bot, db, sc))
         TASKS[chat_id] = task
         try:
@@ -273,7 +272,6 @@ async def run(chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper) -> None:
             await task
         except asyncio.CancelledError:
             LOGGER.info(f"Task for chat_id {chat_id} was cancelled")
-            await TAG_ALL.stop()
 
 
 async def stop(chat_id: int, bot: Bot) -> None:

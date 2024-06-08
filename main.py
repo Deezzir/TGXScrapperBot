@@ -28,6 +28,7 @@ TOKEN = getenv("BOT_TOKEN", "")
 DB = db.MongoDB()
 SCORER = scoring.Scrapper()
 LOGGER = logging.getLogger(__name__)
+TAG_ALL = tagall.TagAll()
 
 
 COMMANDS = {
@@ -92,7 +93,7 @@ async def command_run_handler(message: Message) -> None:
             )
             return
 
-        asyncio.create_task(twitter.run(chat_id, BOT, DB, SCORER))
+        asyncio.create_task(twitter.run(chat_id, BOT, DB, SCORER, TAG_ALL))
     else:
         await message.reply("This command is only available in groups with topics.")
 
@@ -198,7 +199,9 @@ async def callback_block_handler(query: CallbackQuery) -> None:
 async def main() -> None:
     SCORER.login()
     await DB.initialize()
+    await TAG_ALL.start()
     await DISPATCHER.start_polling(BOT)
+    await TAG_ALL.stop()
 
 
 if __name__ == "__main__":
