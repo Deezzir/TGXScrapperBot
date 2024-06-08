@@ -63,13 +63,13 @@ def determine_topic_id(follower_count: int) -> tuple[int, bool]:
 
 
 def determine_resend_number(score: float) -> int:
-    if score >= 12:
+    if score >= 12.0:
         return 4
-    elif score >= 9:
+    elif score >= 9.0:
         return 3
-    elif score >= 6:
+    elif score >= 6.0:
         return 2
-    elif score >= 3:
+    elif score >= 3.0:
         return 1
     else:
         return 0

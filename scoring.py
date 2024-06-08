@@ -121,9 +121,7 @@ class Scrapper:
                 unusual_activity = self.driver.find_element(
                     "xpath", "//input[@data-testid='ocfEnterTextTextInput']"
                 )
-                LOGGER.info(
-                    f"Unusual activity field found, entering phone number({self.phone})..."
-                )
+                LOGGER.info(f"Unusual activity field found, entering phone number...")
                 self._simulate_typing(unusual_activity, self.phone)
                 unusual_activity.send_keys(Keys.RETURN)
                 sleep(1)
@@ -148,9 +146,7 @@ class Scrapper:
                 username_field = self.driver.find_element(
                     "xpath", "//input[@autocomplete='username']"
                 )
-                LOGGER.info(
-                    f"Username field found, entering username({self.username})..."
-                )
+                LOGGER.info(f"Username field found, entering username...")
                 self._simulate_typing(username_field, self.username)
                 sleep(0.3)
                 username_field.send_keys(Keys.RETURN)
@@ -176,9 +172,7 @@ class Scrapper:
                 password_field = self.driver.find_element(
                     "xpath", "//input[@autocomplete='current-password']"
                 )
-                LOGGER.info(
-                    f"Password field found, entering password({self.password})..."
-                )
+                LOGGER.info(f"Password field found, entering password...")
                 self._simulate_typing(password_field, self.password)
                 sleep(0.3)
                 password_field.send_keys(Keys.RETURN)
