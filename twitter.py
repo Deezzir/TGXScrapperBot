@@ -74,8 +74,8 @@ def determine_resend_number(score: float) -> int:
         return 0
 
 
-async def get_mentions_payload(chat_id: int) -> str:
-    return await TAG_ALL.tagall(chat_id)
+async def get_mentions_payload(chat_id: int, tg: TagAll) -> str:
+    return await tg.tagall(chat_id)
 
 
 async def fetch_data(session: aiohttp.ClientSession) -> Optional[Dict]:
@@ -260,12 +260,14 @@ async def scheduled_function(
         await asyncio.sleep(INTERVAL)
 
 
-async def run(chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper, tg: ) -> None:
+async def run(chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper, tg: TagAll) -> None:
     if chat_id in TASKS:
         await bot.send_message(chat_id, "Scrapping is already running")
         return
     async with aiohttp.ClientSession() as session:
-        task = asyncio.create_task(scheduled_function(session, chat_id, bot, db, sc))
+        task = asyncio.create_task(
+            scheduled_function(session, chat_id, bot, db, sc, tg)
+        )
         TASKS[chat_id] = task
         try:
             await bot.send_message(chat_id, "Starting Twitter scrapper...")

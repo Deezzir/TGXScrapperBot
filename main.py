@@ -18,6 +18,7 @@ from aiogram.types import (
 )
 import db
 import utils
+from tagall import TagAll
 
 load_dotenv()
 
@@ -28,7 +29,7 @@ TOKEN = getenv("BOT_TOKEN", "")
 DB = db.MongoDB()
 SCORER = scoring.Scrapper()
 LOGGER = logging.getLogger(__name__)
-TAG_ALL = tagall.TagAll()
+TAG_ALL = TagAll()
 
 
 COMMANDS = {
