@@ -57,7 +57,7 @@ def determine_topic_id(follower_count: int) -> tuple[int, bool]:
     else:
         topic_id = 3
 
-    return topic_id, follower_count > 10
+    return topic_id, follower_count > 1000
 
 
 def determine_resend_number(score: float) -> int:
