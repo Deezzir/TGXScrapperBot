@@ -153,9 +153,7 @@ async def send_tweet(
         f"{await utils.replace_short_urls(tweet['text'])}\n\n"
         f"Followers: {tweet['user']['follower_count']}\n"
         f"Trust Score: {score}\n"
-        f"Market Cap: ${mc}"
-        if mc > 0.0
-        else ""
+        + (f"Market Cap: ${'{:,.2f}'.format(mc)}" if mc > 0.0 else "")
     )
 
     attempts = 0

@@ -133,5 +133,5 @@ async def get_token_info(url: str) -> float:
             data = await response.json()
             usd_market_cap = float(data["usd_market_cap"])
             if usd_market_cap > 0:
-                return round(usd_market_cap, 2)
+                return usd_market_cap
     return 0.0
