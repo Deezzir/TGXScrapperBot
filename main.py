@@ -204,12 +204,24 @@ async def handle_message(event):
         media = event.message.media
 
         if media:
-            await CLIENT.send_file(
-                SUPERGROUP_ID,
-                event.message.media,
-                caption=message_with_link,
-                reply_to=14775,
-            )
+            if isinstance(media, MessageMediaPhoto):
+                await CLIENT.send_file(
+                    SUPERGROUP_ID,
+                    media.photo,
+                    caption=message_with_link,
+                    reply_to=14775,
+                )
+            elif isinstance(media, MessageMediaDocument):
+                await CLIENT.send_file(
+                    SUPERGROUP_ID,
+                    media.document,
+                    caption=message_with_link,
+                    reply_to=14775,
+                )
+            else:
+                await CLIENT.send_message(
+                    SUPERGROUP_ID, message_with_link, reply_to=14775
+                )
         else:
             await CLIENT.send_message(SUPERGROUP_ID, message_with_link, reply_to=14775)
 
