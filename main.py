@@ -193,6 +193,8 @@ async def handle_message(event):
     message_text = event.message.message
     channel = next((ch for ch in TARGET_CHANNELS if ch["id"] == event.chat_id), None)
 
+    LOGGER.info(f"Received Influencer message from {channel['name']}")
+
     if channel:
         group_link = channel["link"]
         message_with_link = (
