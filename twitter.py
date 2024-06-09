@@ -152,8 +152,8 @@ async def send_tweet(
         f"<b>NEW TWEET</b>\n\n"
         f"{await utils.replace_short_urls(tweet['text'])}\n\n"
         f"Followers: {tweet['user']['follower_count']}\n"
-        f"Trust Score: {score}"
-        f"Market Cap: {mc}$"
+        f"Trust Score: {score}\n"
+        f"Market Cap: ${mc}"
         if mc > 0.0
         else ""
     )
