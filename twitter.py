@@ -123,6 +123,7 @@ async def send_tweet(
     sanitazed_text = await utils.replace_short_urls(tweet["text"])
     pump_url = utils.extract_url_and_validate_mint_address(sanitazed_text)
     post_url = f"https://twitter.com/{user_name}/status/{tweet_id}"
+    mc = 0.0
 
     keyboard_buttons = [
         [
@@ -143,6 +144,7 @@ async def send_tweet(
 
     if pump_url:
         keyboard_buttons.append([InlineKeyboardButton(text="Pump", url=pump_url)])
+        mc = await utils.get_token_info(pump_url)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
@@ -151,6 +153,9 @@ async def send_tweet(
         f"{await utils.replace_short_urls(tweet['text'])}\n\n"
         f"Followers: {tweet['user']['follower_count']}\n"
         f"Trust Score: {score}"
+        f"Market Cap: {mc}$"
+        if mc > 0.0
+        else ""
     )
 
     attempts = 0

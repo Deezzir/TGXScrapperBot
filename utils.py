@@ -18,6 +18,16 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
+def extract_mint_from_url(url: str) -> Optional[str]:
+    mint_address = url.split("/")[-1]
+
+    try:
+        Pubkey.from_string(mint_address)
+        return mint_address
+    except Exception as e:
+        return None
+
+
 def extract_url_and_validate_mint_address(text: str) -> Optional[str]:
     url_pattern = re.compile(r"https:\/\/(www\.)?pump\.fun\/[A-Za-z0-9]+")
     match = url_pattern.search(text)
@@ -109,3 +119,19 @@ async def send_message(
             attempts += 1
             await asyncio.sleep(1)
     return None
+
+
+async def get_token_info(url: str) -> float:
+    mint = extract_mint_from_url(url)
+    if not mint:
+        return 0.0
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            f"https://frontend-api.pump.fun/coins/{mint}"
+        ) as response:
+            data = await response.json()
+            usd_market_cap = float(data["usd_market_cap"])
+            if usd_market_cap > 0:
+                return round(usd_market_cap, 2)
+    return 0.0

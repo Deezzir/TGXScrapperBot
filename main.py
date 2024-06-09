@@ -198,9 +198,7 @@ async def handle_message(event):
 
     if channel:
         group_link = channel["link"]
-        message_with_link = (
-            f"{channel['name']}:\n\n{message_text}\n\nSource: {group_link}"
-        )
+        message_with_link = f"<b>NEW POST BY {channel['name'].upper()}</b>\n\n{message_text}\n\nSource: {group_link}"
 
         media = event.message.media
 
@@ -211,6 +209,7 @@ async def handle_message(event):
                     media.photo,
                     caption=message_with_link,
                     reply_to=14775,
+                    parse_mode="html",
                 )
             elif isinstance(media, MessageMediaDocument):
                 await CLIENT.send_file(
@@ -218,10 +217,11 @@ async def handle_message(event):
                     media.document,
                     caption=message_with_link,
                     reply_to=14775,
+                    parse_mode="html",
                 )
             else:
                 await CLIENT.send_message(
-                    SUPERGROUP_ID, message_with_link, reply_to=14775
+                    SUPERGROUP_ID, message_with_link, reply_to=14775, parse_mode="html"
                 )
         else:
             await CLIENT.send_message(SUPERGROUP_ID, message_with_link, reply_to=14775)
