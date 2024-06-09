@@ -224,7 +224,9 @@ async def handle_message(event):
                     SUPERGROUP_ID, message_with_link, reply_to=14775, parse_mode="html"
                 )
         else:
-            await CLIENT.send_message(SUPERGROUP_ID, message_with_link, reply_to=14775)
+            await CLIENT.send_message(
+                SUPERGROUP_ID, message_with_link, reply_to=14775, parse_mode="html"
+            )
 
 
 async def main() -> None:
