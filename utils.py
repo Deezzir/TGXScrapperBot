@@ -3,7 +3,16 @@ from solders.pubkey import Pubkey
 import aiohttp
 import asyncio
 from aiogram import Bot
-from typing import Optional
+from aiogram.exceptions import TelegramAPIError
+from aiogram.types import (
+    Message,
+    LinkPreviewOptions,
+    InlineKeyboardMarkup,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
+    ForceReply,
+)
+from typing import Optional, Union
 import logging
 
 LOGGER = logging.getLogger(__name__)
@@ -67,3 +76,36 @@ async def delete_message(bot: Bot, chat_id: int, messages: list[int]) -> bool:
             attempts += 1
 
     return False
+
+
+async def send_message(
+    bot: Bot,
+    chat_id: int,
+    payload: str,
+    topic_id: Optional[int] = None,
+    post_url: Optional[str] = None,
+    keyboard: Optional[
+        Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ]
+    ] = None,
+) -> Optional[Message]:
+    attempts = 0
+    max_attempts = 3
+
+    while attempts < max_attempts:
+        try:
+            msg = await bot.send_message(
+                chat_id=chat_id,
+                message_thread_id=topic_id,
+                text=payload,
+                parse_mode="HTML",
+                reply_markup=keyboard,
+                link_preview_options=(LinkPreviewOptions(url=post_url)),
+            )
+            return msg
+        except TelegramAPIError as e:
+            LOGGER.error(f"Failed to send message: {e}")
+            attempts += 1
+            await asyncio.sleep(1)
+    return None

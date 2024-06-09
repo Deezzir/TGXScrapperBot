@@ -2,7 +2,6 @@ import asyncio
 import logging
 import sys
 import re
-from os import getenv
 from dotenv import load_dotenv
 import twitter
 from aiogram import Bot, Dispatcher, html, F
@@ -18,19 +17,38 @@ from aiogram.types import (
 )
 import db
 import utils
-from tagall import TagAll
+from telethon import TelegramClient, events, functions
+from telethon.sessions import StringSession
+import asyncio
+from dotenv import load_dotenv
+import os
 
 load_dotenv()
 
+BOT_APP_ID = os.getenv("BOT_APP_ID")
+BOT_APP_HASH = os.getenv("BOT_APP_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+TOKEN = os.getenv("BOT_TOKEN", "")
+SUPERGROUP_ID = os.getenv("SUPERGROUP_ID", "")
+BOT_SESSION = os.getenv("BOT_SESSION", "")
+
+load_dotenv()
+
+HANDLE = "@XCryptoScrapperBot"
 TITLE = "🔰 XScrapper V1.0"
 NAME = "XCryptoScrapperBot"
 DESCRIPTION = "The ultimate bot for scrapping Pump.fun drops from Twitter"
-TOKEN = getenv("BOT_TOKEN", "")
 DB = db.MongoDB()
 SCORER = scoring.Scrapper()
 LOGGER = logging.getLogger(__name__)
-TAG_ALL = TagAll()
 
+TARGET_CHANNELS = [
+    {"id": -1001999456751, "name": "ferb’s", "link": "https://t.me/ferbsfriends"},
+    {"id": -1002158735564, "name": "Qwerty", "link": "https://t.me/QwertysQuants"},
+    {"id": -1002089676082, "name": "joji", "link": "https://t.me/jojiinnercircle"},
+    {"id": -1002001411256, "name": "Borovik", "link": "https://t.me/borovikTG"},
+    {"id": -1002047101414, "name": "Orangie", "link": "https://t.me/orangiealpha"},
+]
 
 COMMANDS = {
     "setup": "Setup the chat",
@@ -39,11 +57,12 @@ COMMANDS = {
 }
 
 if not TOKEN:
-    print("BOT_TOKEN is not provided!")
+    LOGGER.error("BOT_TOKEN is not provided!")
     sys.exit(1)
 
 DISPATCHER = Dispatcher()
 BOT = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+CLIENT = TelegramClient(StringSession(BOT_SESSION), BOT_APP_ID, BOT_APP_HASH)
 
 
 @DISPATCHER.message(CommandStart())
@@ -94,42 +113,9 @@ async def command_run_handler(message: Message) -> None:
             )
             return
 
-        asyncio.create_task(twitter.run(chat_id, BOT, DB, SCORER, TAG_ALL))
+        asyncio.create_task(twitter.run(chat_id, BOT, DB, SCORER, CLIENT))
     else:
         await message.reply("This command is only available in groups with topics.")
-
-
-# @DISPATCHER.message(Command("forward"))
-# async def command_forward_handler(message: Message) -> None:
-#     """
-#     This handler receives messages with `/forward` command and forwards the message to the chat
-#     """
-#     user_id = message.from_user
-#     if not user_id:
-#         return
-#     if user_id.id != 6514596762:
-#         await message.answer(
-#             "You are not allowed to use this command.", show_alert=True
-#         )
-#         return
-
-#     if message.photo:
-#         if message.caption is None:
-#             return
-#         await BOT.send_photo(
-#             0,
-#             photo=message.photo[-1].file_id,
-#             caption=re.sub(r"^(.*\n){2}", "", message.caption),
-#             message_thread_id=14775,
-#         )
-#     else:
-#         if message.text is None:
-#             return
-#         await BOT.send_message(
-#             0,
-#             text=re.sub(r"^(.*\n){2}", "", message.text),
-#             message_thread_id=14775,
-#         )
 
 
 @DISPATCHER.message(Command("stop"))
@@ -197,12 +183,35 @@ async def callback_block_handler(query: CallbackQuery) -> None:
         )
 
 
+@CLIENT.on(events.NewMessage(chats=[ch["id"] for ch in TARGET_CHANNELS]))
+async def handle_message(event):
+    message_text = event.message.message
+    channel = next((ch for ch in TARGET_CHANNELS if ch["id"] == event.chat_id), None)
+
+    if channel:
+        group_link = channel["link"]
+        message_with_link = (
+            f"{channel['name']}:\n\n{message_text}\n\nSource: {group_link}"
+        )
+
+        media = event.message.media
+
+        if media:
+            await CLIENT.send_file(
+                SUPERGROUP_ID,
+                event.message.media,
+                caption=message_with_link,
+                reply_to=14775,
+            )
+        else:
+            await CLIENT.send_message(SUPERGROUP_ID, message_with_link, reply_to=14775)
+
+
 async def main() -> None:
-    SCORER.login()
-    await DB.initialize()
-    # await TAG_ALL.start()
-    await DISPATCHER.start_polling(BOT)
-    # await TAG_ALL.stop()
+    async with CLIENT:
+        SCORER.login()
+        await DB.initialize()
+        await DISPATCHER.start_polling(BOT)
 
 
 if __name__ == "__main__":

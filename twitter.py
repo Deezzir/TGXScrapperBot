@@ -18,11 +18,11 @@ from dotenv import load_dotenv
 from scoring import Scrapper
 from typing import Dict, Optional
 from db import MongoDB
-from tagall import TagAll
+from telethon import TelegramClient
 
 load_dotenv()
 
-INTERVAL = 2  # seconds
+INTERVAL = 4  # seconds
 LATEST = int(time.time() - 60 * 1)
 START_DATE = time.strftime("%Y-%m-%d", time.gmtime(LATEST))
 TASKS: dict[int, asyncio.Task] = {}
@@ -48,7 +48,6 @@ HEADERS = {
 
 
 def determine_topic_id(follower_count: int) -> tuple[int, bool]:
-    topic_id = 0
     if follower_count > 1_000_000:
         topic_id = 6
     elif follower_count > 100_000:
@@ -58,7 +57,7 @@ def determine_topic_id(follower_count: int) -> tuple[int, bool]:
     else:
         topic_id = 3
 
-    return (topic_id, True if follower_count > 900 else False)
+    return topic_id, follower_count > 10
 
 
 def determine_resend_number(score: float) -> int:
@@ -74,8 +73,12 @@ def determine_resend_number(score: float) -> int:
         return 0
 
 
-async def get_mentions_payload(chat_id: int, tg: TagAll) -> str:
-    return await tg.tagall(chat_id)
+async def get_mentions_payload(chat_id: int, client: TelegramClient) -> str:
+    LOGGER.info(f"Getting mentions for chat_id {chat_id}")
+    notifies = []
+    async for user in client.iter_participants(chat_id):
+        notifies.append('<a href="tg://user?id=' + str(user.id) + '">\u206c\u206f</a>')
+    return "\u206c\u206f".join(notifies)
 
 
 async def fetch_data(session: aiohttp.ClientSession) -> Optional[Dict]:
@@ -105,7 +108,13 @@ async def fetch_data_continuation(
 
 
 async def send_tweet(
-    tweet: Dict, score: float, chat_id: int, topic_id: int, bot: Bot, db: MongoDB
+    tweet: Dict,
+    score: float,
+    chat_id: int,
+    topic_id: int,
+    bot: Bot,
+    db: MongoDB,
+    cl: TelegramClient,
 ) -> None:
     user_id = tweet["user"]["user_id"]
     user_name = tweet["user"]["username"]
@@ -147,50 +156,29 @@ async def send_tweet(
     attempts = 0
     max_attempts = 3
 
-    while attempts < max_attempts:
-        try:
-            msg = await bot.send_message(
-                chat_id=chat_id,
-                message_thread_id=topic_id,
-                text=payload,
-                parse_mode="HTML",
-                reply_markup=keyboard,
-                link_preview_options=(LinkPreviewOptions(url=post_url)),
-            )
-            await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
-            break
-        except TelegramAPIError as e:
-            LOGGER.error(f"Failed to send message: {e}")
-            attempts += 1
-            await asyncio.sleep(1)
+    msg = await utils.send_message(bot, chat_id, payload, topic_id, post_url, keyboard)
+    if msg:
+        await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
 
     resend_number = determine_resend_number(score)
-    if resend_number == 0:
+    if resend_number == 0 or not pump_url:
         return
 
     attempts = 0
-    # mentions = await get_mentions_payload(chat_id)
-    # payload = mentions + payload
+    mentions = await get_mentions_payload(chat_id, cl)
+    payload = mentions + payload
+
     for _ in range(resend_number):
-        while attempts < max_attempts:
-            try:
-                msg = await bot.send_message(
-                    chat_id=chat_id,
-                    text=payload,
-                    parse_mode="HTML",
-                    reply_markup=keyboard,
-                    link_preview_options=(LinkPreviewOptions(url=post_url)),
-                )
-                attempts = 0
-                break
-            except TelegramAPIError as e:
-                LOGGER.error(f"Failed to send message: {e}")
-                attempts += 1
-                await asyncio.sleep(1)
+        msg = await utils.send_message(
+            bot, chat_id, payload, post_url=post_url, keyboard=keyboard
+        )
+        if msg:
+            await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
+        await asyncio.sleep(1)
 
 
 async def process_tweet(
-    tweet: Dict, chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper
+    tweet: Dict, chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper, cl: TelegramClient
 ) -> None:
     user_id = tweet["user"]["user_id"]
     user_name = tweet["user"]["username"]
@@ -220,17 +208,17 @@ async def process_tweet(
         await db.update_drop_score(user_id, score)
 
     LOGGER.info(f"New tweet found: {tweet_id}")
-    await send_tweet(tweet, score, chat_id, topic_id, bot, db)
+    await send_tweet(tweet, score, chat_id, topic_id, bot, db, cl)
     await asyncio.sleep(1)
 
 
-async def scheduled_function(
+async def tweet_fetcher(
     session: aiohttp.ClientSession,
     chat_id: int,
     bot: Bot,
     db: MongoDB,
     sc: Scrapper,
-    tg: TagAll,
+    cl: TelegramClient,
 ) -> None:
     global LATEST
     global INTERVAL
@@ -249,7 +237,7 @@ async def scheduled_function(
                 if tweet["timestamp"] <= LATEST:
                     break
 
-                await process_tweet(tweet, chat_id, bot, db, sc)
+                await process_tweet(tweet, chat_id, bot, db, sc, cl)
 
             LATEST = new_latest
 
@@ -260,14 +248,14 @@ async def scheduled_function(
         await asyncio.sleep(INTERVAL)
 
 
-async def run(chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper, tg: TagAll) -> None:
+async def run(
+    chat_id: int, bot: Bot, db: MongoDB, sc: Scrapper, cl: TelegramClient
+) -> None:
     if chat_id in TASKS:
         await bot.send_message(chat_id, "Scrapping is already running")
         return
     async with aiohttp.ClientSession() as session:
-        task = asyncio.create_task(
-            scheduled_function(session, chat_id, bot, db, sc, tg)
-        )
+        task = asyncio.create_task(tweet_fetcher(session, chat_id, bot, db, sc, cl))
         TASKS[chat_id] = task
         try:
             await bot.send_message(chat_id, "Starting Twitter scrapper...")

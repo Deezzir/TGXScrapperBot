@@ -136,11 +136,10 @@ class Scrapper:
                 LOGGER.warning("Unusual activity field not found, retrying...")
                 sleep(2)
 
-    def _input_credentials(self) -> None:
+    def _input_username(self) -> None:
         max_attempts = 5
         attempts = 0
 
-        # username
         while attempts < max_attempts:
             try:
                 username_field = self.driver.find_element(
@@ -150,7 +149,6 @@ class Scrapper:
                 self._simulate_typing(username_field, self.username)
                 sleep(0.3)
                 username_field.send_keys(Keys.RETURN)
-                sleep(1)
                 break
             except NoSuchElementException:
                 attempts += 1
@@ -163,10 +161,10 @@ class Scrapper:
                 LOGGER.warning("Username field not found, retrying...")
                 sleep(2)
 
-        sleep(2)
+    def _input_password(self) -> None:
+        max_attempts = 5
         attempts = 0
 
-        # password
         while attempts < max_attempts:
             try:
                 password_field = self.driver.find_element(
@@ -176,7 +174,6 @@ class Scrapper:
                 self._simulate_typing(password_field, self.password)
                 sleep(0.3)
                 password_field.send_keys(Keys.RETURN)
-                sleep(3)
                 break
             except NoSuchElementException:
                 attempts += 1
@@ -189,15 +186,22 @@ class Scrapper:
                 LOGGER.warning("Password field not found, retrying...")
                 sleep(2)
 
+    def _input_credentials(self) -> None:
+        # username
+        self._input_username()
+        sleep(3)
+        # password
+        self._input_password()
         sleep(3)
         self._input_unusual_activity()
+        sleep(2)
 
         try:
             cookies = self.driver.get_cookies()
             logged = False
 
             for cookie in cookies:
-                print(f"Cookie found: {cookie['name']}")  # debug
+                LOGGER.info(f"Cookie found: {cookie['name']}")  # debug
                 if cookie["name"] == "auth_token":
                     logged = True
                     break
