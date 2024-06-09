@@ -19,6 +19,7 @@ import db
 import utils
 from telethon import TelegramClient, events, functions
 from telethon.sessions import StringSession
+from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
 import asyncio
 from dotenv import load_dotenv
 import os
