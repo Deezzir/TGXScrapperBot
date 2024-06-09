@@ -29,7 +29,7 @@ BOT_APP_ID = os.getenv("BOT_APP_ID")
 BOT_APP_HASH = os.getenv("BOT_APP_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 TOKEN = os.getenv("BOT_TOKEN", "")
-SUPERGROUP_ID = os.getenv("SUPERGROUP_ID", "")
+SUPERGROUP_ID = int(os.getenv("SUPERGROUP_ID", "0"))
 BOT_SESSION = os.getenv("BOT_SESSION", "")
 
 load_dotenv()
