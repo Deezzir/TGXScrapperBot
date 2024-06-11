@@ -27,6 +27,12 @@ LATEST = int(time.time() - 60 * 1)
 START_DATE = time.strftime("%Y-%m-%d", time.gmtime(LATEST))
 TASKS: dict[int, asyncio.Task] = {}
 LOGGER = logging.getLogger(__name__)
+SUPERGROUP_ID2 = int(getenv("SUPERGROUP_ID2", "0"))
+SUPERGROUP_ID3 = int(getenv("SUPERGROUP_ID3", "0"))
+RESEND_TO = [
+    SUPERGROUP_ID2,
+    SUPERGROUP_ID3,
+]
 
 URL = "https://twitter154.p.rapidapi.com/search/search"
 
@@ -48,9 +54,9 @@ HEADERS = {
 
 
 def determine_topic_id(follower_count: int) -> tuple[int, bool]:
-    if follower_count > 1_000_000:
-        topic_id = 6
-    elif follower_count > 100_000:
+    # if follower_count > 1_000_000:
+    #     topic_id = 6
+    if follower_count > 100_000:
         topic_id = 5
     elif follower_count > 10_000:
         topic_id = 4
@@ -175,6 +181,8 @@ async def send_tweet(
         msg = await utils.send_message(
             bot, chat_id, payload, post_url=post_url, keyboard=keyboard
         )
+        for resend_chat in RESEND_TO:
+            await utils.send_message(bot, resend_chat, payload, post_url=post_url)
         if msg:
             await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
         await asyncio.sleep(1)
