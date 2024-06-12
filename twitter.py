@@ -182,7 +182,9 @@ async def send_tweet(
             bot, chat_id, payload, post_url=post_url, keyboard=keyboard
         )
         for resend_chat in RESEND_TO:
-            await utils.send_message(bot, resend_chat, payload, post_url=post_url)
+            await utils.send_message(
+                bot, resend_chat, payload, post_url=post_url, keyboard=keyboard
+            )
         if msg:
             await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
         await asyncio.sleep(1)
