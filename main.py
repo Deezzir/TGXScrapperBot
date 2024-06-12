@@ -106,7 +106,7 @@ async def command_run_handler(message: Message) -> None:
     """
     This handler receives messages with `/run` command
     """
-    if message.chat.is_forum:
+    if message.chat.is_forum and message.chat.id == SUPERGROUP_ID:
         chat_id = message.chat.id
 
         if not message.from_user:
