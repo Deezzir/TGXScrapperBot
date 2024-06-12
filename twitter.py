@@ -176,6 +176,8 @@ async def send_tweet(
     attempts = 0
     mentions = await get_mentions_payload(chat_id, cl)
     payload = mentions + payload
+    resend_keyboard_buttons = keyboard_buttons.copy()
+    del resend_keyboard_buttons[0][-1]
 
     for _ in range(resend_number):
         msg = await utils.send_message(
@@ -183,7 +185,11 @@ async def send_tweet(
         )
         for resend_chat in RESEND_TO:
             await utils.send_message(
-                bot, resend_chat, payload, post_url=post_url, keyboard=keyboard
+                bot,
+                resend_chat,
+                payload,
+                post_url=post_url,
+                keyboard=InlineKeyboardMarkup(inline_keyboard=resend_keyboard_buttons),
             )
         if msg:
             await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
