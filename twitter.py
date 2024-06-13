@@ -273,6 +273,7 @@ async def run(
     if chat_id in TASKS:
         await bot.send_message(chat_id, "Scrapping is already running")
         return
+
     async with aiohttp.ClientSession() as session:
         task = asyncio.create_task(tweet_fetcher(session, chat_id, bot, db, sc, cl))
         TASKS[chat_id] = task
@@ -280,7 +281,7 @@ async def run(
             await bot.send_message(chat_id, "Starting Twitter scrapper...")
             await task
         except asyncio.CancelledError:
-            LOGGER.info(f"Task for chat_id {chat_id} was cancelled")
+            LOGGER.info(f"Cancelling task for chat_id {chat_id}")
 
 
 async def stop(chat_id: int, bot: Bot) -> None:
@@ -288,7 +289,11 @@ async def stop(chat_id: int, bot: Bot) -> None:
     if task:
         await bot.send_message(chat_id, "Stopping Twitter scrapper...")
         task.cancel()
-        await task
-        del TASKS[chat_id]
+        try:
+            await task
+        except asyncio.CancelledError:
+            LOGGER.info(f"Task for chat_id {chat_id} was successfully cancelled")
+        finally:
+            del TASKS[chat_id]
     else:
         await bot.send_message(chat_id, "Twitter scrapper is not running")
