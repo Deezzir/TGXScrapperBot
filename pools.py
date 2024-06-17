@@ -95,6 +95,7 @@ class NewPoolsScrapper:
 
     async def _post_new_pool(self, asset_info: AssetData) -> None:
         if not self.task or not self.bot or not self.chat_id:
+            LOGGER.error("Task not initialized")
             return
 
         keyboard_buttons: List[List[InlineKeyboardButton]] = []
@@ -311,7 +312,7 @@ class NewPoolsScrapper:
                         async for log in websocket:
                             mint_pair = await self._process_log(client, log)
                             if mint_pair:
-                                LOGGER.info(f"Found new pool: {mint_pair}")
+                                LOGGER.info(f"Found new pool: {str(mint_pair[0])}")
                                 asset_info = await self._get_asset_info(
                                     session, client, mint_pair[0], mint_pair[1]
                                 )
@@ -380,7 +381,7 @@ class NewPoolsScrapper:
     async def _get_asset_info(
         self, session: ClientSession, client: AsyncClient, mint: Pubkey, pair: Pubkey
     ) -> Optional[AssetData]:
-        if self.task:
+        if not self.task:
             return None
         asset = await self._get_asset(session, mint)
         if asset:
