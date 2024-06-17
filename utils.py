@@ -11,6 +11,7 @@ from aiogram.types import (
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
     ForceReply,
+    InputFile,
 )
 from typing import Optional, Union
 import logging
@@ -125,7 +126,7 @@ async def send_message(
 async def send_photo(
     bot: Bot,
     chat_id: int,
-    photo: str,
+    photo: Union[InputFile, str],
     caption: str,
     topic_id: Optional[int] = None,
     keyboard: Optional[

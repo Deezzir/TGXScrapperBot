@@ -156,13 +156,13 @@ class NewPoolsScrapper:
             )
         )
 
-        LOGGER.info(f"Posting new pool: {asset_info.img_url}")
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+        image = URLInputFile(asset_info.img_url)
         msg = await utils.send_photo(
             self.bot,
             self.chat_id,
+            image,
             payload,
-            asset_info.img_url,
             self.topic_id,
             keyboard,
             parse_mode="Markdown",
