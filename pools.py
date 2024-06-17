@@ -119,7 +119,7 @@ class NewPoolsScrapper:
             f"*{asset_info.name} \(${asset_info.symbol}\)*\n"
             f"*CA:* `{asset_info.ca}`\n\n"
             f"*Dev:* {self._compress_dev_link(asset_info.dev_wallet)}\n"
-            f"*Dev Allocation:* {asset_info.dev_allocation}%\n\n"
+            f"*Dev Allocation:* {asset_info.dev_allocation if asset_info.dev_allocation > 1 else '<1%'}%\n\n"
             f"*Top Holders:* "
         )
         allocation_strings = [
@@ -129,7 +129,7 @@ class NewPoolsScrapper:
         payload += result
         payload += f"\n*Top Holders Allocation:* {asset_info.top_holders_allocation}%\n"
         payload += (
-            f"\n*Fill time: * {utils.calculate_timespan(int(asset_info.fill_time))}"
+            f"\n*Fill time: *{utils.calculate_timespan(int(asset_info.fill_time))}"
         )
 
         if asset_info.twitter:
@@ -331,10 +331,14 @@ class NewPoolsScrapper:
                         LOGGER.info("Cleaned up resources.")
 
     def _sort_holders(self, top_holders: List[Holder]) -> List[Holder]:
-        return sorted(top_holders, key=lambda x: x.allocation, reverse=True)[1:]
+        return sorted(top_holders, key=lambda x: x.allocation, reverse=True)
 
     async def _get_allocation_info(
-        self, client: AsyncClient, mint: Pubkey, dev: Optional[Pubkey]
+        self,
+        client: AsyncClient,
+        mint: Pubkey,
+        dev: Optional[Pubkey],
+        bonding_curve: Optional[Pubkey],
     ) -> HoldersInfo:
         info = HoldersInfo(top_holders=[], dev_allocation=0, top_holders_allocation=0)
         if not self.task:
@@ -369,7 +373,19 @@ class NewPoolsScrapper:
                     if holder.address == str(dev_token):
                         info.dev_allocation = holder.allocation
                         break
-
+            if bonding_curve:
+                bonding_curve_token = Pubkey.find_program_address(
+                    [
+                        bytes(bonding_curve),
+                        bytes(TOKEN_PROGRAM_ID),
+                        bytes(mint),
+                    ],
+                    ASSOCIATED_TOKEN_PROGRAM_ID,
+                )[0]
+                for holder in sorter_holders:
+                    if holder.address == str(bonding_curve_token):
+                        info.top_holders.remove(holder)
+                        break
             info.top_holders_allocation = int(
                 sum(holder.allocation for holder in sorter_holders)
             )
@@ -399,7 +415,7 @@ class NewPoolsScrapper:
             img_url = uri_meta.get("image", None)
             if token_info:
                 alloc_info = await self._get_allocation_info(
-                    client, mint, token_info.dev
+                    client, mint, token_info.dev, token_info.bonding_curve
                 )
 
             return AssetData(

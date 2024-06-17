@@ -165,6 +165,7 @@ class TokenInfo:
     dev: Pubkey
     created_timestamp: str
     usd_market_cap: float
+    bonding_curve: Pubkey
 
 
 async def get_token_info(mint: str) -> Optional[TokenInfo]:
@@ -183,7 +184,10 @@ async def get_token_info(mint: str) -> Optional[TokenInfo]:
                     dev_pubkey = Pubkey.from_string(data["creator"])
                     created_timestamp = data["created_timestamp"]
                     usd_market_cap = data["usd_market_cap"]
-                    return TokenInfo(dev_pubkey, created_timestamp, usd_market_cap)
+                    bonding_curve = Pubkey.from_string(data["bonding_curve"])
+                    return TokenInfo(
+                        dev_pubkey, created_timestamp, usd_market_cap, bonding_curve
+                    )
     except Exception as e:
         LOGGER.error(f"Error fetching token info: {e}")
         return None
