@@ -94,7 +94,7 @@ class NewPoolsScrapper:
             self.chat_id = None
 
     async def _post_new_pool(self, asset_info: AssetData) -> None:
-        if not self.task or not self.bot or not self.chat_id or not asset_info:
+        if not self.task or not self.bot or not self.chat_id:
             return
 
         keyboard_buttons: List[List[InlineKeyboardButton]] = []
@@ -284,6 +284,7 @@ class NewPoolsScrapper:
                     f"FOUND new pair: Token A: {address_a} Token B: {address_b}"
                 )
                 if init_instr.accounts[17] != PUMP_WALLET:
+                    LOGGER.info("Not a pump wallet transaction")
                     return None
                 if address_a == SOL_MINT:
                     return (address_b, pair)
@@ -310,6 +311,7 @@ class NewPoolsScrapper:
                         async for log in websocket:
                             mint_pair = await self._process_log(client, log)
                             if mint_pair:
+                                LOGGER.info(f"Found new pool: {mint_pair}")
                                 asset_info = await self._get_asset_info(
                                     session, client, mint_pair[0], mint_pair[1]
                                 )
