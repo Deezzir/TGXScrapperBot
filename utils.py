@@ -14,8 +14,10 @@ from aiogram.types import (
     InputFile,
 )
 from aiogram.enums import ParseMode
+from dataclasses import dataclass
 from typing import Optional, Union
 import logging
+from datetime import datetime
 
 LOGGER = logging.getLogger(__name__)
 
@@ -158,17 +160,49 @@ async def send_photo(
     return None
 
 
-async def get_token_info(url: str) -> float:
-    mint = extract_mint_from_url(url)
-    if not mint:
-        return 0.0
+@dataclass
+class TokenInfo:
+    dev: Pubkey
+    created_timestamp: str
+    usd_market_cap: float
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(
-            f"https://frontend-api.pump.fun/coins/{mint}"
-        ) as response:
-            data = await response.json()
-            usd_market_cap = float(data["usd_market_cap"])
-            if usd_market_cap > 0:
-                return usd_market_cap
-    return 0.0
+
+async def get_token_info(mint: str) -> Optional[TokenInfo]:
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                f"https://frontend-api.pump.fun/coins/{mint}"
+            ) as response:
+                data = await response.json()
+                if (
+                    data
+                    and "creator" in data
+                    and "created_timestamp" in data
+                    and "usd_market_cap" in data
+                ):
+                    dev_pubkey = Pubkey.from_string(data["creator"])
+                    created_timestamp = data["created_timestamp"]
+                    usd_market_cap = data["usd_market_cap"]
+                    return TokenInfo(dev_pubkey, created_timestamp, usd_market_cap)
+    except Exception as e:
+        LOGGER.error(f"Error fetching token info: {e}")
+        return None
+    return None
+
+
+def calculate_timespan(timestamp: int) -> str:
+    timestamp_seconds = timestamp / 1000.0
+
+    current_time_seconds = datetime.now().timestamp()
+
+    time_difference_seconds = current_time_seconds - timestamp_seconds
+
+    if time_difference_seconds >= 86400:
+        time_difference_days = time_difference_seconds / 86400
+        return f"{int(time_difference_days)} days"
+    elif time_difference_seconds >= 3600:
+        time_difference_hours = time_difference_seconds / 3600
+        return f"{int(time_difference_hours)} hours"
+    else:
+        time_difference_minutes = time_difference_seconds / 60
+        return f"{int(time_difference_minutes)} minutes"

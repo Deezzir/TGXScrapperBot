@@ -148,9 +148,14 @@ async def send_tweet(
         ],
     ]
 
+    mc = 0.0
     if pump_url:
         keyboard_buttons.append([InlineKeyboardButton(text="Pump", url=pump_url)])
-        mc = await utils.get_token_info(pump_url)
+        mint = utils.extract_mint_from_url(pump_url)
+        if mint:
+            token_info = await utils.get_token_info(mint)
+            if token_info:
+                mc = token_info.usd_market_cap
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
