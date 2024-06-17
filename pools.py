@@ -44,6 +44,12 @@ TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5
 
 
 @dataclass
+class TokenInfo:
+    dev: Pubkey
+    created_timestamp: str
+
+
+@dataclass
 class Holder:
     address: str
     allocation: float
@@ -228,7 +234,7 @@ class NewPoolsScrapper:
 
     async def _get_pump_token_info(
         self, session: ClientSession, mint: Pubkey
-    ) -> Optional[dict]:
+    ) -> Optional[TokenInfo]:
         if not self.task:
             return None
         try:
@@ -238,10 +244,10 @@ class NewPoolsScrapper:
                 data = await response.json()
                 if "creator" not in data or "created_timestamp" not in data:
                     None
-                return {
-                    "dev": Pubkey.from_string(data["creator"]),
-                    "created_timestamp": data["created_timestamp"],
-                }
+                return TokenInfo(
+                    dev=Pubkey.from_string(data["creator"]),
+                    created_timestamp=data["created_timestamp"],
+                )
         except Exception as e:
             LOGGER.error(f"Error in _get_token_uri_metadata: {e}")
             return None
@@ -430,22 +436,14 @@ class NewPoolsScrapper:
             telegram = uri_meta.get("telegram", None)
             website = uri_meta.get("website", None)
             img_url = uri_meta.get("image", None)
-            if token_info and "dev" in token_info:
+            if token_info:
                 alloc_info = await self._get_allocation_info(
-                    client, mint, token_info["dev"]
+                    client, mint, token_info.dev
                 )
 
             return AssetData(
-                dev_wallet=(
-                    str(token_info["dev"])
-                    if token_info and "dev" in token_info
-                    else "Unknown"
-                ),
-                fill_time=(
-                    token_info["created_timestamp"]
-                    if token_info and "created_timestamp" in token_info
-                    else "Unknown"
-                ),
+                dev_wallet=(str(token_info.dev) if token_info else "Unknown"),
+                fill_time=(token_info.created_timestamp if token_info else "Unknown"),
                 dev_allocation=alloc_info.dev_allocation if alloc_info else 0.0,
                 top_holders=alloc_info.top_holders if alloc_info else [],
                 top_holders_allocation=(
