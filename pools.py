@@ -102,7 +102,7 @@ class NewPoolsScrapper:
 
     def _compress_dev_link(self, dev: str) -> str:
         compressed_string = dev[:4] + "..." + dev[-4:]
-        profile_link = f"[{compressed_string}](https://pump.fun/profile/{dev})"
+        profile_link = f"[{compressed_string}]\(https://pump.fun/profile/{dev}\)"
         return profile_link
 
     def calculate_timespan(timestamp):
@@ -430,7 +430,10 @@ class NewPoolsScrapper:
             telegram = uri_meta.get("telegram", None)
             website = uri_meta.get("website", None)
             img_url = uri_meta.get("image", None)
-            alloc_info = await self._get_allocation_info(client, mint, token_info)
+            if token_info and "dev" in token_info:
+                alloc_info = await self._get_allocation_info(
+                    client, mint, token_info["dev"]
+                )
 
             return AssetData(
                 dev_wallet=(
@@ -443,9 +446,11 @@ class NewPoolsScrapper:
                     if token_info and "created_timestamp" in token_info
                     else "Unknown"
                 ),
-                dev_allocation=alloc_info.dev_allocation,
-                top_holders=alloc_info.top_holders,
-                top_holders_allocation=alloc_info.top_holders_allocation,
+                dev_allocation=alloc_info.dev_allocation if alloc_info else 0.0,
+                top_holders=alloc_info.top_holders if alloc_info else [],
+                top_holders_allocation=(
+                    alloc_info.top_holders_allocation if alloc_info else 0.0
+                ),
                 ca=asset["id"],
                 name=asset["content"]["metadata"]["name"],
                 symbol=asset["content"]["metadata"]["symbol"],
