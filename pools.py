@@ -24,6 +24,7 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
+from aiogram.types import URLInputFile
 import utils
 
 load_dotenv()
@@ -152,6 +153,7 @@ class NewPoolsScrapper:
             )
         )
 
+        LOGGER.info(f"Posting new pool: {asset_info.img_url}")
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         msg = await utils.send_photo(
             self.bot,
@@ -316,7 +318,8 @@ class NewPoolsScrapper:
                                 asset_info = await self._get_asset_info(
                                     session, client, mint_pair[0], mint_pair[1]
                                 )
-                                await self._post_new_pool(asset_info)
+                                if asset_info:
+                                    await self._post_new_pool(asset_info)
                     except asyncio.CancelledError:
                         LOGGER.info("Program Logs Task was cancelled.")
                     except Exception as e:
