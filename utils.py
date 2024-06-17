@@ -99,6 +99,7 @@ async def send_message(
             InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
         ]
     ] = None,
+    parse_mode: str = "HTML",
 ) -> Optional[Message]:
     attempts = 0
     max_attempts = 3
@@ -109,13 +110,47 @@ async def send_message(
                 chat_id=chat_id,
                 message_thread_id=topic_id,
                 text=payload,
-                parse_mode="HTML",
+                parse_mode=parse_mode,
                 reply_markup=keyboard,
                 link_preview_options=(LinkPreviewOptions(url=post_url)),
             )
             return msg
         except TelegramAPIError as e:
             LOGGER.error(f"Failed to send message: {e}")
+            attempts += 1
+            await asyncio.sleep(1)
+    return None
+
+
+async def send_photo(
+    bot: Bot,
+    chat_id: int,
+    photo: str,
+    caption: str,
+    topic_id: Optional[int] = None,
+    keyboard: Optional[
+        Union[
+            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+        ]
+    ] = None,
+    parse_mode: str = "HTML",
+) -> Optional[Message]:
+    attempts = 0
+    max_attempts = 3
+
+    while attempts < max_attempts:
+        try:
+            msg = await bot.send_photo(
+                chat_id=chat_id,
+                message_thread_id=topic_id,
+                photo=photo,
+                caption=caption,
+                parse_mode=parse_mode,
+                reply_markup=keyboard,
+            )
+            return msg
+        except TelegramAPIError as e:
+            LOGGER.error(f"Failed to send photo: {e}")
             attempts += 1
             await asyncio.sleep(1)
     return None

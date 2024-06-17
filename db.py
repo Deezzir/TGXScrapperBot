@@ -1,8 +1,11 @@
 import sys
+import asyncio
 from os import getenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.server_api import ServerApi
 from dotenv import load_dotenv
+import json
+from bson import json_util
 import logging
 from typing import Optional
 
@@ -83,3 +86,30 @@ class MongoDB:
 
     async def check_banned(self, xUserId: str) -> bool:
         return await self.BANNED_COLLECTION.find_one({"xUserId": xUserId}) is not None
+
+    async def get_drops(
+        self, condition: Optional[dict], projection: Optional[dict]
+    ) -> list[dict]:
+        drops = self.DROPS_COLLECTION.find(condition, projection)
+        return [drop async for drop in drops]
+
+
+async def main():
+    db = MongoDB()
+    await db.initialize()
+
+    drops = await db.get_drops(
+        {"score": {"$gt": 0.0}},
+        {
+            "_id": 0,
+            "messageIds": 0,
+            "xUserId": 0,
+        },
+    )
+    with open("output.json", "w") as f:
+        drops_json = json.dumps(drops, indent=4, default=json_util.default)
+        f.write(drops_json)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

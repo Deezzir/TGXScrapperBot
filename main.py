@@ -20,13 +20,13 @@ import utils
 from telethon import TelegramClient, events, functions
 from telethon.sessions import StringSession
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
-import asyncio
-from dotenv import load_dotenv
 import os
+import pools
 
 load_dotenv()
 
 BOT_APP_ID = os.getenv("BOT_APP_ID")
+RPC = os.getenv("RPC", "")
 BOT_APP_HASH = os.getenv("BOT_APP_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 TOKEN = os.getenv("BOT_TOKEN", "")
@@ -38,7 +38,7 @@ load_dotenv()
 HANDLE = "@XCryptoScrapperBot"
 TITLE = "🔰 XScrapper V1.0"
 NAME = "XCryptoScrapperBot"
-DESCRIPTION = "The ultimate bot for scrapping Pump.fun drops from Twitter"
+DESCRIPTION = "The ultimate bot for scrapping Pump.fun drops"
 DB = db.MongoDB()
 SCORER = scoring.Scrapper()
 LOGGER = logging.getLogger(__name__)
@@ -57,9 +57,10 @@ TARGET_CHANNELS = [
 ]
 
 COMMANDS = {
-    "setup": "Setup the chat",
     "run": "Start Twitter scrapper",
     "stop": "Stop Twitter scrapper",
+    "runpools": "Start new Pump.fun Bonds scrapper",
+    "stoppools": "Stop Pump.fun Bonds scrapper",
 }
 
 if not TOKEN:
@@ -69,6 +70,7 @@ if not TOKEN:
 DISPATCHER = Dispatcher()
 BOT = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 CLIENT = TelegramClient(StringSession(BOT_SESSION), BOT_APP_ID, BOT_APP_HASH)
+NEW_POOLS = pools.NewPoolsScrapper(RPC)
 
 
 @DISPATCHER.message(CommandStart())
@@ -92,36 +94,74 @@ async def command_start_handler(message: Message) -> None:
         await message.answer(payload, reply_markup=inline_keyboard)
 
 
-@DISPATCHER.message(Command("setup"))
-async def command_setup_handler(message: Message) -> None:
-    """
-    This handler receives messages with `/setup` command
-    """
-    chat_info = await BOT.get_chat(message.chat.id)
-    await message.answer("Setup is not available yet.")
-
-
 @DISPATCHER.message(Command("run"))
 async def command_run_handler(message: Message) -> None:
     """
     This handler receives messages with `/run` command
     """
-    if message.chat.is_forum and message.chat.id == SUPERGROUP_ID:
-        chat_id = message.chat.id
-
-        if not message.from_user:
-            return
-
-        member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
-        if member.status not in ["creator", "administrator"]:
-            await message.answer(
-                "You must be an admin to start the scrapper.", show_alert=True
-            )
-            return
-
-        asyncio.create_task(twitter.run(chat_id, BOT, DB, SCORER, CLIENT))
-    else:
+    if message.chat.id != SUPERGROUP_ID:
+        await message.reply("This command is only available in the CALL CENTER.")
+    if not message.chat.is_forum:
         await message.reply("This command is only available in groups with topics.")
+        return
+
+    chat_id = message.chat.id
+    if not message.from_user:
+        return
+
+    member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
+    if member.status not in ["creator", "administrator"]:
+        await message.answer(
+            "You must be an admin to start the scrapper.", show_alert=True
+        )
+        return
+
+    asyncio.create_task(twitter.run(chat_id, BOT, DB, SCORER, CLIENT))
+
+
+@DISPATCHER.message(Command("runpools"))
+async def command_run_pools_handler(message: Message) -> None:
+    """
+    This handler receives messages with `/runpools` command
+    """
+    if message.chat.id != SUPERGROUP_ID:
+        await message.reply("This command is only available in the CALL CENTER.")
+    if not message.chat.is_forum:
+        await message.reply("This command is only available in groups with topics.")
+        return
+
+    chat_id = message.chat.id
+    if not message.from_user:
+        return
+
+    member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
+    if member.status not in ["creator", "administrator"]:
+        await message.answer(
+            "You must be an admin to start the scrapper.", show_alert=True
+        )
+        return
+
+    await BOT.send_message(chat_id, "Starting New Pools scrapper...")
+    asyncio.create_task(NEW_POOLS.start(chat_id, BOT))
+
+
+@DISPATCHER.message(Command("stoppools"))
+async def command_stop_pools_handler(message: Message) -> None:
+    """
+    This handler receives messages with `/stoppools` command
+    """
+    chat_id = message.chat.id
+    if not message.from_user:
+        return
+
+    member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
+    if member.status not in ["creator", "administrator"]:
+        await message.answer(
+            "You must be an admin to stop the scrapper.", show_alert=True
+        )
+        return
+
+    await NEW_POOLS.stop()
 
 
 @DISPATCHER.message(Command("stop"))
@@ -148,7 +188,7 @@ async def callback_add_admin_handler(query: CallbackQuery) -> None:
     """
     This handler receives callback queries with `add_admin` callback_data
     """
-    await query.answer("Adding admin...")
+    await query.answer("Adding as admin...")
 
 
 @DISPATCHER.callback_query(F.data.startswith("block:"))
@@ -168,7 +208,7 @@ async def callback_block_handler(query: CallbackQuery) -> None:
     if len(query_parts) != 3:
         LOGGER.error("Invalid query data format")
         return None
-    action, username, user_id = query_parts
+    _, username, user_id = query_parts
 
     await query.answer(f"Blocking {username}...")
     await DB.insert_banned(user_id)
@@ -187,6 +227,23 @@ async def callback_block_handler(query: CallbackQuery) -> None:
             text=f"<b>{username.upper()}</b> has been blocked",
             parse_mode=ParseMode.HTML,
         )
+
+
+@DISPATCHER.callback_query(F.data.startswith("report:"))
+async def callback_report_handler(query: CallbackQuery) -> None:
+    """
+    This handler receives callback queries with `report:` callback_data
+    """
+    if query.message is None or query.data is None or query.message is None:
+        return
+
+    query_parts = query.data.split(":")
+    if len(query_parts) != 3:
+        LOGGER.error("Invalid query data format")
+        return None
+    _, username, user_id = query_parts
+
+    await query.answer(f"Reporting is WIP...")
 
 
 @CLIENT.on(events.NewMessage(chats=[ch["id"] for ch in TARGET_CHANNELS]))
