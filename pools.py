@@ -81,6 +81,9 @@ class NewPoolsScrapper:
         self.chat_id: Optional[int] = None
 
     async def start(self, chat_id: int, bot: Bot) -> None:
+        if self.task:
+            await bot.send_message(chat_id, "Pool scrapper already running.")
+            return
         task = asyncio.create_task(self._get_new_pools())
         self.task = task
         self.bot = bot
