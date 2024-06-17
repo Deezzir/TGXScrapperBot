@@ -65,6 +65,7 @@ class AssetData:
     ca: str
     img_url: str
     name: str
+    fill_time: str
     symbol: str
     twitter: Optional[str]
     telegram: Optional[str]
@@ -103,6 +104,18 @@ class NewPoolsScrapper:
         compressed_string = dev[:4] + "..." + dev[-4:]
         profile_link = f"[{compressed_string}](https://pump.fun/profile/{dev})"
         return profile_link
+
+    def calculate_timespan(timestamp):
+        timestamp_seconds = timestamp / 1000.0
+        current_time_seconds = datetime.now().timestamp()
+        time_difference_seconds = current_time_seconds - timestamp_seconds
+
+        if time_difference_seconds >= 3600:
+            time_difference_hours = time_difference_seconds / 3600
+            return f"Fill time: {int(time_difference_hours)} hours"
+        else:
+            time_difference_minutes = time_difference_seconds / 60
+            return f"Fill time: {int(time_difference_minutes)} minutes"
 
     async def _post_new_pool(self, asset_info: AssetData) -> None:
         if not self.task or not self.bot or not self.chat_id:
@@ -213,9 +226,9 @@ class NewPoolsScrapper:
             LOGGER.error(f"Error in _get_asset: {e}")
             return None
 
-    async def _get_pump_token_dev(
+    async def _get_pump_token_info(
         self, session: ClientSession, mint: Pubkey
-    ) -> Optional[Pubkey]:
+    ) -> Optional[dict]:
         if not self.task:
             return None
         try:
@@ -223,9 +236,12 @@ class NewPoolsScrapper:
                 f"https://frontend-api.pump.fun/coins/{str(mint)}"
             ) as response:
                 data = await response.json()
-                if "creator" not in data:
+                if "creator" not in data or "created_timestamp" not in data:
                     None
-                return Pubkey.from_string(data["creator"])
+                return {
+                    "dev": Pubkey.from_string(data["creator"]),
+                    "created_timestamp": data["created_timestamp"],
+                }
         except Exception as e:
             LOGGER.error(f"Error in _get_token_uri_metadata: {e}")
             return None
@@ -409,16 +425,24 @@ class NewPoolsScrapper:
             if not uri_meta:
                 return None
 
-            dev = await self._get_pump_token_dev(session, mint)
+            token_info = await self._get_pump_token_info(session, mint)
             twitter = uri_meta.get("twitter", None)
             telegram = uri_meta.get("telegram", None)
             website = uri_meta.get("website", None)
             img_url = uri_meta.get("image", None)
-            # TODO: fill time
-            alloc_info = await self._get_allocation_info(client, mint, dev)
+            alloc_info = await self._get_allocation_info(client, mint, token_info)
 
             return AssetData(
-                dev_wallet=str(dev) if dev else "Unknown",
+                dev_wallet=(
+                    str(token_info["dev"])
+                    if token_info and "dev" in token_info
+                    else "Unknown"
+                ),
+                fill_time=(
+                    token_info["created_timestamp"]
+                    if token_info and "created_timestamp" in token_info
+                    else "Unknown"
+                ),
                 dev_allocation=alloc_info.dev_allocation,
                 top_holders=alloc_info.top_holders,
                 top_holders_allocation=alloc_info.top_holders_allocation,
