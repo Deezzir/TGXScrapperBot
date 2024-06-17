@@ -13,6 +13,7 @@ from aiogram.types import (
     ForceReply,
     InputFile,
 )
+from aiogram.enums import ParseMode
 from typing import Optional, Union
 import logging
 
@@ -100,7 +101,7 @@ async def send_message(
             InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
         ]
     ] = None,
-    parse_mode: str = "HTML",
+    parse_mode: ParseMode = ParseMode.HTML,
 ) -> Optional[Message]:
     attempts = 0
     max_attempts = 3
@@ -134,7 +135,7 @@ async def send_photo(
             InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
         ]
     ] = None,
-    parse_mode: str = "HTML",
+    parse_mode: ParseMode = ParseMode.HTML,
 ) -> Optional[Message]:
     attempts = 0
     max_attempts = 3

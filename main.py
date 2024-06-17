@@ -141,7 +141,6 @@ async def command_run_pools_handler(message: Message) -> None:
         )
         return
 
-    await BOT.send_message(chat_id, "Starting New Pools scrapper...")
     asyncio.create_task(NEW_POOLS.start(chat_id, BOT))
 
 

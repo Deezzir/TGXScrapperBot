@@ -20,6 +20,7 @@ import pprint
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from aiogram import Bot
+from aiogram.enums import ParseMode
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -84,6 +85,7 @@ class NewPoolsScrapper:
         if self.task:
             await bot.send_message(chat_id, "Pool scrapper already running.")
             return
+        await bot.send_message(chat_id, "Starting New Pools scrapper...")
         task = asyncio.create_task(self._get_new_pools())
         self.task = task
         self.bot = bot
@@ -97,6 +99,11 @@ class NewPoolsScrapper:
             self.bot = None
             self.chat_id = None
 
+    def _compress_dev_link(self, dev: str) -> str:
+        compressed_string = dev[:4] + "..." + dev[-4:]
+        profile_link = f"[{compressed_string}](https://pump.fun/profile/{dev})"
+        return profile_link
+
     async def _post_new_pool(self, asset_info: AssetData) -> None:
         if not self.task or not self.bot or not self.chat_id:
             LOGGER.error("Task not initialized")
@@ -107,12 +114,12 @@ class NewPoolsScrapper:
         bottom_buttons = []
 
         payload = (
-            f"**New Pool Launched**\n\n"
+            f"**NEW POOL LAUNCHED**\n\n"
             f"**{asset_info.name} (${asset_info.symbol})**\n"
-            f"CA: `{asset_info.ca}`\n\n"
-            f"Dev: {asset_info.dev_wallet}\n"
-            f"Dev Allocation: {asset_info.dev_allocation}%\n\n"
-            f"Top Holders: "
+            f"**CA:** `{asset_info.ca}`\n\n"
+            f"**Dev:** {self._compress_dev_link(asset_info.dev_wallet)}\n"
+            f"**Dev Allocation:** {asset_info.dev_allocation}%\n\n"
+            f"**Top Holders:** "
         )
         allocation_strings = [
             f"{holder.allocation}%" for holder in asset_info.top_holders[:5]
@@ -156,6 +163,8 @@ class NewPoolsScrapper:
             )
         )
 
+        keyboard_buttons.append(top_buttons)
+        keyboard_buttons.append(bottom_buttons)
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         image = URLInputFile(asset_info.img_url)
         msg = await utils.send_photo(
@@ -165,7 +174,7 @@ class NewPoolsScrapper:
             payload,
             self.topic_id,
             keyboard,
-            parse_mode="Markdown",
+            parse_mode=ParseMode.MARKDOWN_V2,
         )
 
     def _find_instruction_by_program_id(
@@ -315,14 +324,17 @@ class NewPoolsScrapper:
                         sub_id = first_resp[0].result
 
                         async for log in websocket:
-                            mint_pair = await self._process_log(client, log)
-                            if mint_pair:
-                                LOGGER.info(f"Found new pool: {str(mint_pair[0])}")
-                                asset_info = await self._get_asset_info(
-                                    session, client, mint_pair[0], mint_pair[1]
-                                )
-                                if asset_info:
-                                    await self._post_new_pool(asset_info)
+                            try:
+                                mint_pair = await self._process_log(client, log)
+                                if mint_pair:
+                                    LOGGER.info(f"Found new pool: {str(mint_pair[0])}")
+                                    asset_info = await self._get_asset_info(
+                                        session, client, mint_pair[0], mint_pair[1]
+                                    )
+                                    if asset_info:
+                                        await self._post_new_pool(asset_info)
+                            except Exception as e:
+                                LOGGER.error(f"Error processing a log: {e}")
                     except asyncio.CancelledError:
                         LOGGER.info("Program Logs Task was cancelled.")
                     except Exception as e:
@@ -355,7 +367,7 @@ class NewPoolsScrapper:
                                 int(holder_raw.amount.amount)
                                 / int(total_supply.value.amount)
                                 * 100,
-                                2,
+                                1,
                             )
                         ),
                     )
@@ -376,7 +388,7 @@ class NewPoolsScrapper:
                         break
 
             info.top_holders_allocation = round(
-                sum(holder.allocation for holder in sorter_holders), 2
+                sum(holder.allocation for holder in sorter_holders), 1
             )
 
             return info
