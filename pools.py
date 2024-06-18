@@ -115,7 +115,7 @@ class NewPoolsScrapper:
         bottom_buttons = []
 
         payload = (
-            f"*- NEW POOL LAUNCHED -*\n\n"
+            f"*\- NEW POOL LAUNCHED \-*\n\n"
             f"📛 *{asset_info.name} \(${asset_info.symbol}\)*\n"
             f"📄 *CA:* `{asset_info.ca}`\n\n"
             f"👨‍💻 *Dev:* {self._compress_dev_link(asset_info.dev_wallet)}\n"
