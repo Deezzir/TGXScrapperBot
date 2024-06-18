@@ -134,15 +134,15 @@ async def send_tweet(
     keyboard_buttons = [
         [
             InlineKeyboardButton(
-                text="Tweet",
+                text="📁 Tweet",
                 url=f"https://twitter.com/{user_name}/status/{tweet_id}",
             ),
             InlineKeyboardButton(
-                text="Profile",
+                text="🐤 Profile",
                 url=f"https://x.com/{user_name}",
             ),
             InlineKeyboardButton(
-                text="Block",
+                text="🚫 Block",
                 callback_data=f"block:{user_name}:{user_id}",
             ),
         ],
@@ -150,7 +150,7 @@ async def send_tweet(
 
     mc = 0.0
     if pump_url:
-        keyboard_buttons.append([InlineKeyboardButton(text="Pump", url=pump_url)])
+        keyboard_buttons.append([InlineKeyboardButton(text="💊 Pump", url=pump_url)])
         mint = utils.extract_mint_from_url(pump_url)
         if mint:
             token_info = await utils.get_token_info(mint)
@@ -160,21 +160,33 @@ async def send_tweet(
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
     payload = (
-        f"<b>NEW TWEET</b>\n\n"
-        f"{await utils.replace_short_urls(tweet['text'])}\n\n"
-        f"Followers: {tweet['user']['follower_count']}\n"
-        f"Trust Score: {score}\n"
-        + (f"Market Cap: ${'{:,.2f}'.format(mc)}" if mc > 0.0 else "")
+        f"<b>- NEW TWEET -</b>\n\n"
+        f"<blockquote>{await utils.replace_short_urls(tweet['text'])}</blockquote>\n\n"
+        f"👨‍👩‍👦‍👦 <b>Followers:</b> {tweet['user']['follower_count']}\n"
+        f"🪩 <b>Space Score:</b> {score}\n"
+        + (f"🏛 <b>Market Cap:</b> ${'{:,.2f}'.format(mc)}\n" if mc > 0.0 else "")
+        + (f"☎️ <b>CA:</b> <code>{mint}</code>" if pump_url else "")
     )
 
     attempts = 0
     max_attempts = 3
 
-    msg = await utils.send_message(bot, chat_id, payload, topic_id, post_url, keyboard)
+    msg = await utils.send_message(bot, chat_id, payload, topic_id, None, keyboard)
     if msg:
         await db.update_drop_messages(tweet["user"]["user_id"], msg.message_id)
 
     resend_number = determine_resend_number(score)
+
+    if score > 0.0:
+        await utils.send_message(
+            bot,
+            chat_id,
+            payload,
+            topic_id=37874,
+            post_url=None,
+            keyboard=InlineKeyboardMarkup(inline_keyboard=keyboard_buttons),
+        )
+
     if resend_number == 0 or not pump_url:
         return
 
@@ -186,14 +198,14 @@ async def send_tweet(
 
     for _ in range(resend_number):
         msg = await utils.send_message(
-            bot, chat_id, payload, post_url=post_url, keyboard=keyboard
+            bot, chat_id, payload, post_url=None, keyboard=keyboard
         )
         for resend_chat in RESEND_TO:
             await utils.send_message(
                 bot,
                 resend_chat,
                 payload,
-                post_url=post_url,
+                post_url=None,
                 keyboard=InlineKeyboardMarkup(inline_keyboard=resend_keyboard_buttons),
             )
         if msg:

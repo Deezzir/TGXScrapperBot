@@ -115,54 +115,56 @@ class NewPoolsScrapper:
         bottom_buttons = []
 
         payload = (
-            f"*NEW POOL LAUNCHED*\n\n"
-            f"*{asset_info.name} \(${asset_info.symbol}\)*\n"
-            f"*CA:* `{asset_info.ca}`\n\n"
-            f"*Dev:* {self._compress_dev_link(asset_info.dev_wallet)}\n"
-            f"*Dev Allocation:* {asset_info.dev_allocation if asset_info.dev_allocation > 1 else '<1%'}%\n\n"
-            f"*Top Holders:* "
+            f"*- NEW POOL LAUNCHED -*\n\n"
+            f"📛 *{asset_info.name} \(${asset_info.symbol}\)*\n"
+            f"📄 *CA:* `{asset_info.ca}`\n\n"
+            f"👨‍💻 *Dev:* {self._compress_dev_link(asset_info.dev_wallet)}\n"
+            f"🏛 *Dev Hodls:* {asset_info.dev_allocation if asset_info.dev_allocation > 1 else '<1%'}%\n\n"
+            f"🐳 *Top Hodlers:* "
         )
         allocation_strings = [
             f"{holder.allocation}%" for holder in asset_info.top_holders[:5]
         ]
         result = " \| ".join(allocation_strings)
         payload += result
-        payload += f"\n*Top Holders Allocation:* {asset_info.top_holders_allocation}%\n"
         payload += (
-            f"\n*Fill time: *{utils.calculate_timespan(int(asset_info.fill_time))}"
+            f"\n*Top 20 Hodlers allocation:* {asset_info.top_holders_allocation}%\n"
+        )
+        payload += (
+            f"\n*⏰ Fill time: *{utils.calculate_timespan(int(asset_info.fill_time))}"
         )
 
         if asset_info.twitter:
             top_buttons.append(
                 InlineKeyboardButton(
-                    text="Twitter",
+                    text="🐤 Twitter",
                     url=asset_info.twitter,
                 )
             )
         if asset_info.telegram:
             top_buttons.append(
                 InlineKeyboardButton(
-                    text="Telegram",
+                    text="📞 Telegram",
                     url=asset_info.telegram,
                 )
             )
         if asset_info.website:
             top_buttons.append(
                 InlineKeyboardButton(
-                    text="Website",
+                    text="🌐 Website",
                     url=asset_info.website,
                 )
             )
 
         bottom_buttons.append(
             InlineKeyboardButton(
-                text="Pump Fun",
+                text="💊 Pump Fun",
                 url=asset_info.pump,
             )
         )
         bottom_buttons.append(
             InlineKeyboardButton(
-                text="DEX Screener",
+                text="🦅 DEX Screener",
                 url=asset_info.dex,
             )
         )

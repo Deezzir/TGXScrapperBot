@@ -116,7 +116,10 @@ async def send_message(
                 text=payload,
                 parse_mode=parse_mode,
                 reply_markup=keyboard,
-                link_preview_options=(LinkPreviewOptions(url=post_url)),
+                link_preview_options=(
+                    (LinkPreviewOptions(url=post_url)) if post_url else None
+                ),
+                disable_web_page_preview=not bool(post_url),
             )
             return msg
         except TelegramAPIError as e:

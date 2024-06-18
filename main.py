@@ -248,13 +248,18 @@ async def callback_report_handler(query: CallbackQuery) -> None:
 @CLIENT.on(events.NewMessage(chats=[ch["id"] for ch in TARGET_CHANNELS]))
 async def handle_message(event):
     message_text = event.message.message
+    message_id = event.message.id
     channel = next((ch for ch in TARGET_CHANNELS if ch["id"] == event.chat_id), None)
 
     LOGGER.info(f"Received Influencer message from {channel['name']}")
 
     if channel:
         group_link = channel["link"]
-        message_with_link = f"<b>NEW POST BY {channel['name'].upper()}</b>\n\n{message_text}\n\nSource: {group_link}"
+        message_with_link = (
+            f"<b>- NEW POST BY {channel['name'].upper()} -</b>\n\n"
+            f"<blockquote>{message_text}</blockquote>\n\n"
+            f"<a href='{group_link}/{message_id}'>🔗 Source</a>"
+        )
 
         media = event.message.media
 
