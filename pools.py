@@ -359,7 +359,6 @@ class NewPoolsScrapper:
                         ),
                     )
                 )
-            sorter_holders = self._sort_holders(info.top_holders)
             if dev:
                 dev_token = Pubkey.find_program_address(
                     [
@@ -369,7 +368,7 @@ class NewPoolsScrapper:
                     ],
                     ASSOCIATED_TOKEN_PROGRAM_ID,
                 )[0]
-                for holder in sorter_holders:
+                for holder in info.top_holders:
                     if holder.address == str(dev_token):
                         info.dev_allocation = holder.allocation
                         break
@@ -382,12 +381,13 @@ class NewPoolsScrapper:
                     ],
                     ASSOCIATED_TOKEN_PROGRAM_ID,
                 )[0]
-                for holder in sorter_holders:
-                    if holder.address == str(bonding_curve_token):
-                        info.top_holders.remove(holder)
-                        break
+                info.top_holders = [
+                    holder
+                    for holder in info.top_holders
+                    if holder.address != str(bonding_curve_token)
+                ]
             info.top_holders_allocation = int(
-                sum(holder.allocation for holder in sorter_holders)
+                sum(holder.allocation for holder in info.top_holders)
             )
 
             return info
