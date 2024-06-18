@@ -34,13 +34,10 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(__name__)
 
 RPC = getenv("RPC")
+TOKEN = getenv("BOT_TOKEN", "")
 RAYDIUN_PROGRAM_ID = Pubkey.from_string("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
 SOL_MINT = Pubkey.from_string("So11111111111111111111111111111111111111112")
 PUMP_WALLET = Pubkey.from_string("39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg")
-ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string(
-    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-)
-TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 
 
 @dataclass
@@ -94,7 +91,8 @@ class NewPoolsScrapper:
         await task
 
     async def stop(self) -> None:
-        if self.task:
+        if self.task and self.bot and self.chat_id:
+            await self.bot.send_message(self.chat_id, "Stopping New Pools scrapper...")
             self.task.cancel()
             self.task = None
             self.bot = None
@@ -330,6 +328,7 @@ class NewPoolsScrapper:
                     finally:
                         if sub_id:
                             await websocket.logs_unsubscribe(sub_id)
+                            self.task = None
                         LOGGER.info("Cleaned up resources.")
 
     def _sort_holders(self, top_holders: List[Holder]) -> List[Holder]:
@@ -362,36 +361,23 @@ class NewPoolsScrapper:
                     )
                 )
             if dev:
-                dev_token = Pubkey.find_program_address(
-                    [
-                        bytes(dev),
-                        bytes(TOKEN_PROGRAM_ID),
-                        bytes(mint),
-                    ],
-                    ASSOCIATED_TOKEN_PROGRAM_ID,
-                )[0]
+                dev_token = utils.get_token_wallet(dev, mint)
                 for holder in info.top_holders:
                     if holder.address == str(dev_token):
                         info.dev_allocation = holder.allocation
                         break
             if bonding_curve:
-                bonding_curve_token = Pubkey.find_program_address(
-                    [
-                        bytes(bonding_curve),
-                        bytes(TOKEN_PROGRAM_ID),
-                        bytes(mint),
-                    ],
-                    ASSOCIATED_TOKEN_PROGRAM_ID,
-                )[0]
+                bonding_curve_token = utils.get_token_wallet(bonding_curve, mint)
+                pump_token = utils.get_token_wallet(PUMP_WALLET, mint)
                 info.top_holders = [
                     holder
                     for holder in info.top_holders
                     if holder.address != str(bonding_curve_token)
+                    and holder.address != str(pump_token)
                 ]
             info.top_holders_allocation = int(
                 sum(holder.allocation for holder in info.top_holders)
             )
-
             return info
         except Exception as e:
             LOGGER.error(f"Error in get_allocation_info: {e}")
@@ -442,9 +428,10 @@ class NewPoolsScrapper:
 
 
 async def test():
+    bot = Bot(token=TOKEN)
     processor = NewPoolsScrapper(RPC)
     try:
-        await processor.start()
+        await processor.start(bot, 1)
     except KeyboardInterrupt:
         await processor.stop()
 

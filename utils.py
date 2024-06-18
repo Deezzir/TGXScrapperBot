@@ -20,6 +20,10 @@ import logging
 from datetime import datetime
 
 LOGGER = logging.getLogger(__name__)
+ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string(
+    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
+)
+TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 
 
 def extract_mint_from_url(url: str) -> Optional[str]:
@@ -213,3 +217,10 @@ def calculate_timespan(timestamp: int) -> str:
     else:
         time_difference_minutes = time_difference_seconds / 60
         return f"{int(time_difference_minutes)} minutes"
+
+
+def get_token_wallet(owner: Pubkey, mint: Pubkey) -> Pubkey:
+    return Pubkey.find_program_address(
+        [bytes(owner), bytes(TOKEN_PROGRAM_ID), bytes(mint)],
+        ASSOCIATED_TOKEN_PROGRAM_ID,
+    )[0]
