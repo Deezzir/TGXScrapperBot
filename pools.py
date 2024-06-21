@@ -72,31 +72,45 @@ class AssetData:
 
 
 class NewPoolsScrapper:
-    def __init__(self, rpc: str):
+    def __init__(self, rpc: str, bot: Bot):
         self.rpc = rpc
         self.task: Optional[asyncio.Task[Any]] = None
         self.topic_id = 35117
-        self.bot: Optional[Bot] = None
+        self.bot = bot
         self.chat_id: Optional[int] = None
 
-    async def start(self, chat_id: int, bot: Bot) -> None:
+    async def start(self, chat_id: int) -> None:
         if self.task:
-            await bot.send_message(chat_id, "Pool scrapper already running.")
+            await self.bot.send_message(chat_id, "Pool scrapper already running.")
             return
-        await bot.send_message(chat_id, "Starting New Pools scrapper...")
-        task = asyncio.create_task(self._get_new_pools())
-        self.task = task
-        self.bot = bot
-        self.chat_id = chat_id
-        await task
+
+        try:
+            await self.bot.send_message(chat_id, "Starting New Pools scrapper...")
+            task = asyncio.create_task(self._get_new_pools())
+            self.task = task
+            self.chat_id = chat_id
+            await task
+        except asyncio.CancelledError:
+            LOGGER.info("New Pools Task was cancelled.")
 
     async def stop(self) -> None:
-        if self.task and self.bot and self.chat_id:
+        if self.task and self.chat_id:
             await self.bot.send_message(self.chat_id, "Stopping New Pools scrapper...")
             self.task.cancel()
-            self.task = None
-            self.bot = None
-            self.chat_id = None
+
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                LOGGER.info("New Pools Task was successfully cancelled.")
+            finally:
+                self.task = None
+                self.chat_id = None
+        else:
+            if not self.chat_id:
+                return
+            await self.bot.send_message(
+                self.chat_id, "New Pools scrapper is not running."
+            )
 
     def _compress_dev_link(self, dev: str) -> str:
         compressed_string = dev[:4] + "\.\.\." + dev[-4:]

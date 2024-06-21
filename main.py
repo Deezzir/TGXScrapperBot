@@ -38,7 +38,6 @@ HANDLE = "@XCryptoScrapperBot"
 TITLE = "🔰 XScrapper V1.0"
 NAME = "XCryptoScrapperBot"
 DESCRIPTION = "The ultimate bot for scrapping Pump.fun drops"
-DB = db.MongoDB()
 SCORER = scoring.Scrapper()
 LOGGER = logging.getLogger(__name__)
 
@@ -67,9 +66,11 @@ if not TOKEN:
     sys.exit(1)
 
 DISPATCHER = Dispatcher()
+DB = db.MongoDB()
 BOT = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 CLIENT = TelegramClient(StringSession(BOT_SESSION), BOT_APP_ID, BOT_APP_HASH)
-NEW_POOLS = pools.NewPoolsScrapper(RPC)
+NEW_POOLS = pools.NewPoolsScrapper(RPC, BOT)
+TWITTER = twitter.TwitterScrapper(BOT, DB, SCORER, CLIENT)
 
 
 @DISPATCHER.message(CommandStart())
@@ -115,7 +116,7 @@ async def command_run_handler(message: Message) -> None:
         )
         return
 
-    asyncio.create_task(twitter.run(chat_id, BOT, DB, SCORER, CLIENT))
+    asyncio.create_task(TWITTER.start(chat_id))
 
 
 @DISPATCHER.message(Command("runpools"))
@@ -140,7 +141,7 @@ async def command_run_pools_handler(message: Message) -> None:
         )
         return
 
-    asyncio.create_task(NEW_POOLS.start(chat_id, BOT))
+    asyncio.create_task(NEW_POOLS.start(chat_id))
 
 
 @DISPATCHER.message(Command("stoppools"))
@@ -178,7 +179,7 @@ async def command_stop_handler(message: Message) -> None:
         )
         return
 
-    await twitter.stop(chat_id, BOT)
+    await TWITTER.stop(chat_id)
 
 
 @DISPATCHER.callback_query(F.data == "add_admin")
