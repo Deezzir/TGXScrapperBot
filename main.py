@@ -126,11 +126,11 @@ async def command_run_pools_handler(message: Message) -> None:
     """
     if message.chat.id != SUPERGROUP_ID:
         await message.reply("This command is only available in the CALL CENTER.")
+
     if not message.chat.is_forum:
         await message.reply("This command is only available in groups with topics.")
         return
 
-    chat_id = message.chat.id
     if not message.from_user:
         return
 
@@ -141,7 +141,7 @@ async def command_run_pools_handler(message: Message) -> None:
         )
         return
 
-    asyncio.create_task(NEW_POOLS.start(chat_id))
+    asyncio.create_task(NEW_POOLS.start(message.chat.id))
 
 
 @DISPATCHER.message(Command("stoppools"))
@@ -168,7 +168,6 @@ async def command_stop_handler(message: Message) -> None:
     """
     This handler receives messages with `/stop` command
     """
-    chat_id = message.chat.id
     if not message.from_user:
         return
 
@@ -179,7 +178,7 @@ async def command_stop_handler(message: Message) -> None:
         )
         return
 
-    await TWITTER.stop(chat_id)
+    await TWITTER.stop(message.chat.id)
 
 
 @DISPATCHER.callback_query(F.data == "add_admin")

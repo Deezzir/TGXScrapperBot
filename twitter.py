@@ -89,7 +89,7 @@ class TwitterScrapper:
     async def start(self, chat_id: int) -> None:
         if chat_id in self.tasks:
             await self.bot.send_message(chat_id, "Scrapping is already running")
-        return
+            return
 
         async with aiohttp.ClientSession() as session:
             task = asyncio.create_task(self._fetch_tweets(session, chat_id))
