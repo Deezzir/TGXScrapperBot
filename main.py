@@ -157,6 +157,7 @@ async def command_run_ticker_handler(message: Message, command: CommandObject) -
         await message.reply(
             "This command is only available outside of the CALL CENTER."
         )
+        return
 
     if not message.from_user:
         return
@@ -171,18 +172,18 @@ async def command_run_ticker_handler(message: Message, command: CommandObject) -
         await message.answer(
             "You are not allowed to start the scrapper.", show_alert=True
         )
+        return
 
-    args = command.args
-    if not args:
+    arg = command.args
+    if not arg:
         await message.answer("Please provide a ticker to start the scrapper.")
         return
 
-    if len(args) != 1 or not re.match(r"^\$[A-Za-z]+$", args[0]):
+    if not re.match(r"^\$[A-Za-z]+$", arg):
         await message.answer("Invalid ticker format. Please provide a valid ticker.")
+        return
 
-    query = args[0].upper()
-
-    asyncio.create_task(TWITTER.start(message.chat.id, query=query))
+    asyncio.create_task(TWITTER.start(message.chat.id, query=arg))
 
 
 @DISPATCHER.message(Command("stoppools"))

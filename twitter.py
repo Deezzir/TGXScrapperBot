@@ -95,7 +95,12 @@ class TwitterScrapper:
             task = asyncio.create_task(self._fetch_tweets(session, chat_id, query))
             self.tasks[chat_id] = task
             try:
-                await self.bot.send_message(chat_id, "Starting Twitter scrapper...")
+                start_msg = (
+                    "Starting Twitter scrapper with query: " + query
+                    if query
+                    else "Starting Twitter scrapper..."
+                )
+                await self.bot.send_message(chat_id, start_msg)
                 await task
             except asyncio.CancelledError:
                 LOGGER.info(f"Cancelling Twitter Scrapper Task for chat_id {chat_id}")
@@ -187,26 +192,29 @@ class TwitterScrapper:
         self, tweet: Dict, chat_id: int, ticker_query: str
     ) -> None:
         user_id = tweet["user"]["user_id"]
-        user_name = tweet["user"]["username"]
+        username = tweet["user"]["username"]
         tweet_id = tweet["tweet_id"]
+        follower_count = tweet["user"]["follower_count"]
+        score = 0.0
 
         sanitized_text = await utils.replace_short_urls(tweet["text"])
         if ticker_query.lower() not in sanitized_text.lower():
             return
 
         LOGGER.info(f"New Ticker tweet found: {tweet_id}")
-        post_url = f"https://twitter.com/{user_name}/status/{tweet_id}"
-        score = self.sc.calc_score(user_name)
+        post_url = f"https://twitter.com/{username}/status/{tweet_id}"
+        if follower_count > 1000:
+            score = self.sc.calc_score(username)
 
         keyboard_buttons = [
             [
                 InlineKeyboardButton(
                     text="📁 Tweet",
-                    url=f"https://twitter.com/{user_name}/status/{tweet_id}",
+                    url=f"https://twitter.com/{username}/status/{tweet_id}",
                 ),
                 InlineKeyboardButton(
                     text="🐤 Profile",
-                    url=f"https://x.com/{user_name}",
+                    url=f"https://x.com/{username}",
                 ),
             ],
         ]
@@ -215,7 +223,8 @@ class TwitterScrapper:
         payload = (
             f"<b>- NEW TWEET -</b>\n\n"
             f"<blockquote>{await utils.replace_short_urls(tweet['text'])}</blockquote>\n\n"
-            f"👨‍👩‍👦‍👦 <b>Followers:</b> {tweet['user']['follower_count']}\n"
+            f"👤 @{username}\n"
+            f"👨‍👩‍👦‍👦 <b>Followers:</b> {follower_count}\n"
             f"🪩 <b>Space Score:</b> {score}\n"
         )
 
@@ -229,27 +238,27 @@ class TwitterScrapper:
         topic_id: int,
     ) -> None:
         user_id = tweet["user"]["user_id"]
-        user_name = tweet["user"]["username"]
+        username = tweet["user"]["username"]
         tweet_id = tweet["tweet_id"]
 
         sanitized_text = await utils.replace_short_urls(tweet["text"])
         pump_url = utils.extract_url_and_validate_mint_address(sanitized_text)
-        post_url = f"https://twitter.com/{user_name}/status/{tweet_id}"
+        post_url = f"https://twitter.com/{username}/status/{tweet_id}"
         mc = 0.0
 
         keyboard_buttons = [
             [
                 InlineKeyboardButton(
                     text="📁 Tweet",
-                    url=f"https://twitter.com/{user_name}/status/{tweet_id}",
+                    url=f"https://twitter.com/{username}/status/{tweet_id}",
                 ),
                 InlineKeyboardButton(
                     text="🐤 Profile",
-                    url=f"https://x.com/{user_name}",
+                    url=f"https://x.com/{username}",
                 ),
                 InlineKeyboardButton(
                     text="🚫 Block",
-                    callback_data=f"block:{user_name}:{user_id}",
+                    callback_data=f"block:{username}:{user_id}",
                 ),
             ],
         ]
@@ -270,6 +279,7 @@ class TwitterScrapper:
         payload = (
             f"<b>- NEW TWEET -</b>\n\n"
             f"<blockquote>{await utils.replace_short_urls(tweet['text'])}</blockquote>\n\n"
+            f"👤 @{username}\n"
             f"👨‍👩‍👦‍👦 <b>Followers:</b> {tweet['user']['follower_count']}\n"
             f"🪩 <b>Space Score:</b> {score}\n"
             + (f"🏛 <b>Market Cap:</b> ${'{:,.2f}'.format(mc)}\n" if mc > 0.0 else "")

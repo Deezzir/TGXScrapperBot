@@ -140,7 +140,7 @@ class NewPoolsScrapper:
         result = " \| ".join(allocation_strings)
         payload += result
         payload += (
-            f"\n*Top 20 Hodlers allocation:* {asset_info.top_holders_allocation}%\n"
+            f"\n*🏦 Top 20 Hodlers allocation:* {asset_info.top_holders_allocation}%\n"
         )
         payload += (
             f"\n*⏰ Fill time: *{utils.calculate_timespan(int(asset_info.fill_time))}"
