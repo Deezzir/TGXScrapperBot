@@ -7,7 +7,7 @@ import twitter
 from aiogram import Bot, Dispatcher, html, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart, Command, CommandObject
 import scoring
 from aiogram.types import (
     InlineKeyboardButton,
@@ -20,6 +20,7 @@ import utils
 from telethon import TelegramClient, events, functions
 from telethon.sessions import StringSession
 from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
+from typing import List
 import os
 import pools
 
@@ -31,6 +32,9 @@ BOT_APP_HASH = os.getenv("BOT_APP_HASH")
 TOKEN = os.getenv("BOT_TOKEN", "")
 SUPERGROUP_ID = int(os.getenv("SUPERGROUP_ID", "0"))
 BOT_SESSION = os.getenv("BOT_SESSION", "")
+ALLOWED_USERS: List[int] = [
+    int(user) for user in os.getenv("ALLOWED_USERS", "").split(",")
+]
 
 load_dotenv()
 
@@ -142,6 +146,43 @@ async def command_run_pools_handler(message: Message) -> None:
         return
 
     asyncio.create_task(NEW_POOLS.start(message.chat.id))
+
+
+@DISPATCHER.message(Command("runticker"))
+async def command_run_ticker_handler(message: Message, command: CommandObject) -> None:
+    """
+    This handler receives messages with `/runticker` command
+    """
+    if message.chat.id == SUPERGROUP_ID:
+        await message.reply(
+            "This command is only available outside of the CALL CENTER."
+        )
+
+    if not message.from_user:
+        return
+
+    member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
+    if member.status not in ["creator", "administrator"]:
+        await message.answer(
+            "You must be an admin to start the scrapper.", show_alert=True
+        )
+        return
+    if member.user.id not in ALLOWED_USERS:
+        await message.answer(
+            "You are not allowed to start the scrapper.", show_alert=True
+        )
+
+    args = command.args
+    if not args:
+        await message.answer("Please provide a ticker to start the scrapper.")
+        return
+
+    if len(args) != 1 or not re.match(r"^\$[A-Za-z]+$", args[0]):
+        await message.answer("Invalid ticker format. Please provide a valid ticker.")
+
+    query = args[0].upper()
+
+    asyncio.create_task(TWITTER.start(message.chat.id, query=query))
 
 
 @DISPATCHER.message(Command("stoppools"))

@@ -86,13 +86,13 @@ class TwitterScrapper:
         self.cl = cl
         self.tasks: dict[int, asyncio.Task] = {}
 
-    async def start(self, chat_id: int) -> None:
+    async def start(self, chat_id: int, query: Optional[str] = None) -> None:
         if chat_id in self.tasks:
             await self.bot.send_message(chat_id, "Scrapping is already running")
             return
 
         async with aiohttp.ClientSession() as session:
-            task = asyncio.create_task(self._fetch_tweets(session, chat_id))
+            task = asyncio.create_task(self._fetch_tweets(session, chat_id, query))
             self.tasks[chat_id] = task
             try:
                 await self.bot.send_message(chat_id, "Starting Twitter scrapper...")
@@ -114,13 +114,18 @@ class TwitterScrapper:
         else:
             await self.bot.send_message(chat_id, "Twitter scrapper is not running")
 
-    async def _fetch_tweets(self, session: aiohttp.ClientSession, chat_id: int) -> None:
+    async def _fetch_tweets(
+        self,
+        session: aiohttp.ClientSession,
+        chat_id: int,
+        ticker_query: Optional[str] = None,
+    ) -> None:
         global LATEST
         global INTERVAL
 
         while True:
             try:
-                data = await self._fetch_tweets_data(session)
+                data = await self._fetch_tweets_data(session, query=ticker_query)
 
                 if not data or not data.get("results"):
                     LOGGER.error("No results found.")
@@ -132,7 +137,12 @@ class TwitterScrapper:
                     if tweet["timestamp"] <= LATEST:
                         break
 
-                    await self._process_tweet(tweet, chat_id)
+                    if not ticker_query:
+                        await self._process_tweet(tweet, chat_id)
+                    else:
+                        await self._process_send_ticker_tweet(
+                            tweet, chat_id, ticker_query
+                        )
 
                 LATEST = new_latest
 
@@ -172,7 +182,44 @@ class TwitterScrapper:
 
         LOGGER.info(f"New tweet found: {tweet_id}")
         await self._send_tweet(tweet, score, chat_id, topic_id)
-        await asyncio.sleep(1)
+
+    async def _process_send_ticker_tweet(
+        self, tweet: Dict, chat_id: int, ticker_query: str
+    ) -> None:
+        user_id = tweet["user"]["user_id"]
+        user_name = tweet["user"]["username"]
+        tweet_id = tweet["tweet_id"]
+
+        sanitazed_text = await utils.replace_short_urls(tweet["text"])
+        if ticker_query not in sanitazed_text:
+            return
+
+        LOGGER.info(f"New Ticker tweet found: {tweet_id}")
+        post_url = f"https://twitter.com/{user_name}/status/{tweet_id}"
+        score = self.sc.calc_score(user_name)
+
+        keyboard_buttons = [
+            [
+                InlineKeyboardButton(
+                    text="📁 Tweet",
+                    url=f"https://twitter.com/{user_name}/status/{tweet_id}",
+                ),
+                InlineKeyboardButton(
+                    text="🐤 Profile",
+                    url=f"https://x.com/{user_name}",
+                ),
+            ],
+        ]
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
+        payload = (
+            f"<b>- NEW TWEET -</b>\n\n"
+            f"<blockquote>{await utils.replace_short_urls(tweet['text'])}</blockquote>\n\n"
+            f"👨‍👩‍👦‍👦 <b>Followers:</b> {tweet['user']['follower_count']}\n"
+            f"🪩 <b>Space Score:</b> {score}\n"
+        )
+
+        msg = await utils.send_message(self.bot, chat_id, payload, keyboard=keyboard)
 
     async def _send_tweet(
         self,
@@ -229,9 +276,6 @@ class TwitterScrapper:
             + (f"☎️ <b>CA:</b> <code>{mint}</code>" if pump_url else "")
         )
 
-        attempts = 0
-        max_attempts = 3
-
         msg = await utils.send_message(
             self.bot, chat_id, payload, topic_id, None, keyboard
         )
@@ -253,7 +297,6 @@ class TwitterScrapper:
         if resend_number == 0 or not pump_url:
             return
 
-        attempts = 0
         mentions = await self._get_mentions_payload(chat_id)
         payload = mentions + payload
         resend_keyboard_buttons = keyboard_buttons.copy()
@@ -289,11 +332,15 @@ class TwitterScrapper:
         return "\u206c\u206f".join(notifies)
 
     async def _fetch_tweets_data(
-        self, session: aiohttp.ClientSession
+        self, session: aiohttp.ClientSession, query: Optional[str] = None
     ) -> Optional[Dict]:
         LOGGER.info("Fetching data...")
         try:
-            async with session.get(URL, headers=HEADERS, params=QUERY) as response:
+            params = QUERY.copy()
+            if query:
+                params["query"] = query
+
+            async with session.get(URL, headers=HEADERS, params=params) as response:
                 data = await response.json()
                 return data
         except Exception as e:
