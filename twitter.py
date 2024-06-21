@@ -191,7 +191,7 @@ class TwitterScrapper:
         tweet_id = tweet["tweet_id"]
 
         sanitazed_text = await utils.replace_short_urls(tweet["text"])
-        if ticker_query not in sanitazed_text:
+        if ticker_query.lower() not in sanitazed_text.lower():
             return
 
         LOGGER.info(f"New Ticker tweet found: {tweet_id}")
