@@ -190,8 +190,8 @@ class TwitterScrapper:
         user_name = tweet["user"]["username"]
         tweet_id = tweet["tweet_id"]
 
-        sanitazed_text = await utils.replace_short_urls(tweet["text"])
-        if ticker_query.lower() not in sanitazed_text.lower():
+        sanitized_text = await utils.replace_short_urls(tweet["text"])
+        if ticker_query.lower() not in sanitized_text.lower():
             return
 
         LOGGER.info(f"New Ticker tweet found: {tweet_id}")
@@ -232,8 +232,8 @@ class TwitterScrapper:
         user_name = tweet["user"]["username"]
         tweet_id = tweet["tweet_id"]
 
-        sanitazed_text = await utils.replace_short_urls(tweet["text"])
-        pump_url = utils.extract_url_and_validate_mint_address(sanitazed_text)
+        sanitized_text = await utils.replace_short_urls(tweet["text"])
+        pump_url = utils.extract_url_and_validate_mint_address(sanitized_text)
         post_url = f"https://twitter.com/{user_name}/status/{tweet_id}"
         mc = 0.0
 
