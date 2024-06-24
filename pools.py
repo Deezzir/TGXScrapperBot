@@ -4,6 +4,7 @@ import json
 from os import getenv
 from aiohttp import ClientSession
 from solana.rpc.websocket_api import connect as ws_connect
+from websockets.exceptions import ConnectionClosedError
 from solana.rpc.async_api import AsyncClient
 from solders.rpc.responses import GetTransactionResp, GetSignaturesForAddressResp
 from solana.rpc.types import MemcmpOpts, Commitment
@@ -310,40 +311,66 @@ class NewPoolsScrapper:
     async def _get_new_pools(self):
         if not self.task:
             return
-        async with ClientSession() as session:
-            async with AsyncClient(f"https://{self.rpc}") as client:
-                async with ws_connect(f"wss://{self.rpc}") as websocket:
-                    sub_id = None
+        done = False
+        while not done:
+            async with ClientSession() as session:
+                async with AsyncClient(f"https://{self.rpc}") as client:
                     try:
-                        await websocket.logs_subscribe(
-                            RpcTransactionLogsFilterMentions(RAYDIUN_PROGRAM_ID),
-                            "confirmed",
-                        )
-                        LOGGER.info("Subscribed to logs. Waiting for messages...")
-                        first_resp = await websocket.recv()
-                        sub_id = first_resp[0].result
-
-                        async for log in websocket:
+                        async with ws_connect(
+                            f"wss://{self.rpc}", ping_interval=60, ping_timeout=120
+                        ) as websocket:
+                            sub_id = None
                             try:
-                                mint_pair = await self._process_log(client, log)
-                                if mint_pair:
-                                    LOGGER.info(f"Found new pool: {str(mint_pair[0])}")
-                                    asset_info = await self._get_asset_info(
-                                        session, client, mint_pair[0], mint_pair[1]
-                                    )
-                                    if asset_info:
-                                        await self._post_new_pool(asset_info)
+                                await websocket.logs_subscribe(
+                                    RpcTransactionLogsFilterMentions(
+                                        RAYDIUN_PROGRAM_ID
+                                    ),
+                                    "confirmed",
+                                )
+                                LOGGER.info(
+                                    "Subscribed to logs. Waiting for messages..."
+                                )
+                                first_resp = await websocket.recv()
+                                sub_id = first_resp[0].result
+
+                                async for log in websocket:
+                                    try:
+                                        mint_pair = await self._process_log(client, log)
+                                        if mint_pair:
+                                            LOGGER.info(
+                                                f"Found new pool: {str(mint_pair[0])}"
+                                            )
+                                            asset_info = await self._get_asset_info(
+                                                session,
+                                                client,
+                                                mint_pair[0],
+                                                mint_pair[1],
+                                            )
+                                            if asset_info:
+                                                await self._post_new_pool(asset_info)
+                                    except asyncio.CancelledError:
+                                        LOGGER.info("Log processing was cancelled.")
+                                        done = True
+                                        break
+                                    except Exception as e:
+                                        LOGGER.error(f"Error processing a log: {e}")
+                            except asyncio.CancelledError:
+                                LOGGER.info("Program Logs Task was cancelled.")
+                                done = True
+                            except ConnectionClosedError as e:
+                                LOGGER.error(f"WebSocket connection closed: {e}")
                             except Exception as e:
-                                LOGGER.error(f"Error processing a log: {e}")
+                                LOGGER.error(f"Error in Program Logs Task: {e}")
+                            finally:
+                                if sub_id:
+                                    await websocket.logs_unsubscribe(sub_id)
+                                    self.task = None
+                                LOGGER.info("Cleaned up resources.")
                     except asyncio.CancelledError:
-                        LOGGER.info("Program Logs Task was cancelled.")
+                        LOGGER.info("Task was cancelled.")
+                        done = True
                     except Exception as e:
-                        LOGGER.error(f"Error in Program Logs Task: {e}")
-                    finally:
-                        if sub_id:
-                            await websocket.logs_unsubscribe(sub_id)
-                            self.task = None
-                        LOGGER.info("Cleaned up resources.")
+                        LOGGER.error(f"Error establishing WebSocket connection: {e}")
 
     def _sort_holders(self, top_holders: List[Holder]) -> List[Holder]:
         return sorted(top_holders, key=lambda x: x.allocation, reverse=True)
