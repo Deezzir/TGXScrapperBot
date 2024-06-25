@@ -22,7 +22,7 @@ from telethon import TelegramClient
 
 load_dotenv()
 
-INTERVAL = 4  # seconds
+INTERVAL = 2  # seconds
 LATEST = int(time.time() - 60 * 1)
 START_DATE = time.strftime("%Y-%m-%d", time.gmtime(LATEST))
 LOGGER = logging.getLogger(__name__)
@@ -85,6 +85,7 @@ class TwitterScrapper:
         self.sc = sc
         self.cl = cl
         self.tasks: dict[int, asyncio.Task] = {}
+        self.lock = asyncio.Lock()
 
     async def start(self, chat_id: int, query: Optional[str] = None) -> None:
         if chat_id in self.tasks:
@@ -138,19 +139,23 @@ class TwitterScrapper:
 
                 new_latest = data["results"][0]["timestamp"]
 
+                tasks = []
                 for tweet in data.get("results", []):
                     if tweet["timestamp"] <= LATEST:
                         break
 
                     if not ticker_query:
-                        await self._process_tweet(tweet, chat_id)
+                        tasks.append(self._process_tweet(tweet, chat_id))
                     else:
-                        await self._process_send_ticker_tweet(
-                            tweet, chat_id, ticker_query
+                        tasks.append(
+                            self._process_send_ticker_tweet(
+                                tweet, chat_id, ticker_query
+                            )
                         )
+                if tasks:
+                    await asyncio.gather(*tasks)
 
                 LATEST = new_latest
-
             except Exception as e:
                 LOGGER.error(f"An error occurred: {e}")
 
@@ -181,7 +186,8 @@ class TwitterScrapper:
         score = 0.0
         if to_score:
             LOGGER.info(f"Calculating score for {user_name}")
-            score = self.sc.calc_score(user_name)
+            async with self.lock:
+                score = self.sc.calc_score(user_name)
             LOGGER.info(f"Score for {user_name}: {score}")
             await self.db.update_drop_score(user_id, score)
 
