@@ -208,7 +208,6 @@ class TwitterScrapper:
             return
 
         LOGGER.info(f"New Ticker tweet found: {tweet_id}")
-        post_url = f"https://twitter.com/{username}/status/{tweet_id}"
         if follower_count > 1000:
             score = self.sc.calc_score(username)
 
@@ -249,7 +248,6 @@ class TwitterScrapper:
 
         sanitized_text = await utils.replace_short_urls(tweet["text"])
         pump_url = utils.extract_url_and_validate_mint_address(sanitized_text)
-        post_url = f"https://twitter.com/{username}/status/{tweet_id}"
         mc = 0.0
 
         keyboard_buttons = [
@@ -271,10 +269,20 @@ class TwitterScrapper:
 
         mc = 0.0
         if pump_url:
-            keyboard_buttons.append(
-                [InlineKeyboardButton(text="💊 Pump", url=pump_url)]
-            )
             mint = utils.extract_mint_from_url(pump_url)
+            keyboard_buttons.append(
+                [
+                    InlineKeyboardButton(text="💊 Pump", url=pump_url),
+                    (
+                        InlineKeyboardButton(
+                            text="🐃 BullX",
+                            url=f"https://bullx.io/terminal?chainId=1399811149&address={mint}",
+                        )
+                        if mint
+                        else None
+                    ),
+                ]
+            )
             if mint:
                 token_info = await utils.get_token_info(mint)
                 if token_info:
