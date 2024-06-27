@@ -268,17 +268,21 @@ class TwitterScrapper:
         if pump_url:
             mint = utils.extract_mint_from_url(pump_url)
             if mint:
-                keyboard_buttons.append(
-                    [
-                        InlineKeyboardButton(text="💊 Pump", url=pump_url),
-                        InlineKeyboardButton(
-                            text="🐃 BullX",
-                            url=f"https://bullx.io/terminal?chainId=1399811149&address={mint}",
-                        ),
-                    ]
-                )
                 token_info = await utils.get_token_info(mint)
                 if token_info:
+                    keyboard_buttons.append(
+                        [
+                            InlineKeyboardButton(text="💊 Pump", url=pump_url),
+                            InlineKeyboardButton(
+                                text="🐃 BullX",
+                                url=f"https://bullx.io/terminal?chainId=1399811149&address={mint}",
+                            ),
+                            InlineKeyboardButton(
+                                text="🛸 Photon",
+                                url=f"https://photon-sol.tinyastro.io/en/lp/{token_info.bonding_curve}",
+                            ),
+                        ]
+                    )
                     mc = token_info.usd_market_cap
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
