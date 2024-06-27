@@ -1,8 +1,6 @@
 import aiohttp
 import asyncio
 import time
-import requests
-import re
 import logging
 import utils
 from aiogram.types import (
@@ -197,7 +195,6 @@ class TwitterScrapper:
     async def _process_send_ticker_tweet(
         self, tweet: Dict, chat_id: int, ticker_query: str
     ) -> None:
-        user_id = tweet["user"]["user_id"]
         username = tweet["user"]["username"]
         tweet_id = tweet["tweet_id"]
         follower_count = tweet["user"]["follower_count"]
@@ -270,20 +267,16 @@ class TwitterScrapper:
         mc = 0.0
         if pump_url:
             mint = utils.extract_mint_from_url(pump_url)
-            keyboard_buttons.append(
-                [
-                    InlineKeyboardButton(text="💊 Pump", url=pump_url),
-                    (
+            if mint:
+                keyboard_buttons.append(
+                    [
+                        InlineKeyboardButton(text="💊 Pump", url=pump_url),
                         InlineKeyboardButton(
                             text="🐃 BullX",
                             url=f"https://bullx.io/terminal?chainId=1399811149&address={mint}",
-                        )
-                        if mint
-                        else None
-                    ),
-                ]
-            )
-            if mint:
+                        ),
+                    ]
+                )
                 token_info = await utils.get_token_info(mint)
                 if token_info:
                     mc = token_info.usd_market_cap
