@@ -210,13 +210,23 @@ def calculate_timespan(timestamp: int) -> str:
 
     if time_difference_seconds >= 86400:
         time_difference_days = time_difference_seconds / 86400
-        return f"{int(time_difference_days)} days"
+        return (
+            f"{int(time_difference_days)} days" if time_difference_days > 1 else "1 day"
+        )
     elif time_difference_seconds >= 3600:
         time_difference_hours = time_difference_seconds / 3600
-        return f"{int(time_difference_hours)} hours"
+        return (
+            f"{int(time_difference_hours)} hours"
+            if time_difference_hours > 1
+            else "1 hour"
+        )
     else:
         time_difference_minutes = time_difference_seconds / 60
-        return f"{int(time_difference_minutes)} minutes"
+        return (
+            f"{int(time_difference_minutes)} minutes"
+            if time_difference_minutes > 1
+            else "1 minute"
+        )
 
 
 def get_token_wallet(owner: Pubkey, mint: Pubkey) -> Pubkey:

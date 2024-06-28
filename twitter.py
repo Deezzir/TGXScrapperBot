@@ -21,8 +21,6 @@ from telethon import TelegramClient
 load_dotenv()
 
 INTERVAL = 2  # seconds
-LATEST = int(time.time() - 60 * 1)
-START_DATE = time.strftime("%Y-%m-%d", time.gmtime(LATEST))
 LOGGER = logging.getLogger(__name__)
 SUPERGROUP_ID2 = int(getenv("SUPERGROUP_ID2", "0"))
 SUPERGROUP_ID3 = int(getenv("SUPERGROUP_ID3", "0"))
@@ -40,7 +38,7 @@ QUERY = {
     "min_likes": "0",
     "limit": "20",
     "min_replies": "0",
-    "start_date": START_DATE,
+    "start_date": time.strftime("%Y-%m-%d", time.gmtime(int(time.time()))),
     "language": "en",
 }
 
@@ -124,8 +122,8 @@ class TwitterScrapper:
         chat_id: int,
         ticker_query: Optional[str] = None,
     ) -> None:
-        global LATEST
         global INTERVAL
+        latest_timestamp = int(time.time() - 60 * 1)
 
         while True:
             try:
@@ -139,7 +137,7 @@ class TwitterScrapper:
 
                 tasks = []
                 for tweet in data.get("results", []):
-                    if tweet["timestamp"] <= LATEST:
+                    if tweet["timestamp"] <= latest_timestamp:
                         break
 
                     if not ticker_query:
@@ -153,11 +151,15 @@ class TwitterScrapper:
                 if tasks:
                     await asyncio.gather(*tasks)
 
-                LATEST = new_latest
+                latest_timestamp = new_latest
             except Exception as e:
                 LOGGER.error(f"An error occurred: {e}")
 
-            LOGGER.info(f"Latest Timestamp: {LATEST}. Sleeping...")
+            LOGGER.info(
+                f"Latest Timestamp: {latest_timestamp}. Sleeping..." + " QUERY"
+                if not ticker_query
+                else " TICKER"
+            )
             await asyncio.sleep(INTERVAL)
 
     async def _process_tweet(self, tweet: Dict, chat_id: int) -> None:
