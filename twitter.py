@@ -156,9 +156,8 @@ class TwitterScrapper:
                 LOGGER.error(f"An error occurred: {e}")
 
             LOGGER.info(
-                f"Latest Timestamp: {latest_timestamp}. Sleeping..." + " QUERY"
-                if not ticker_query
-                else " TICKER"
+                f"Latest Timestamp: {latest_timestamp}. Sleeping..."
+                + (" QUERY" if not ticker_query else " TICKER")
             )
             await asyncio.sleep(INTERVAL)
 
