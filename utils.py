@@ -15,15 +15,22 @@ from aiogram.types import (
 )
 from aiogram.enums import ParseMode
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional, Union, Tuple, List
 import logging
 from datetime import datetime
+from pprint import pprint
 
 LOGGER = logging.getLogger(__name__)
 ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string(
     "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
 )
 TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+
+
+@dataclass
+class ScrapperOptions:
+    query: str
+    topic_ids: List[int]
 
 
 def extract_mint_from_url(url: str) -> Optional[str]:
@@ -234,3 +241,24 @@ def get_token_wallet(owner: Pubkey, mint: Pubkey) -> Pubkey:
         [bytes(owner), bytes(TOKEN_PROGRAM_ID), bytes(mint)],
         ASSOCIATED_TOKEN_PROGRAM_ID,
     )[0]
+
+
+async def setup_ticker_scrapper(bot: Bot, chat_id: int) -> List[int]:
+    tweets_topic = await bot.create_forum_topic(chat_id, "TWEETS", icon_color=7322096)
+    replies_topic = await bot.create_forum_topic(
+        chat_id, "REPLIES", icon_color=16766590
+    )
+    scores_topic = await bot.create_forum_topic(
+        chat_id, "WIF SCORE", icon_color=13338331
+    )
+
+    return [
+        tweets_topic.message_thread_id,
+        replies_topic.message_thread_id,
+        scores_topic.message_thread_id,
+    ]
+
+
+async def clear_x_scrapper(bot: Bot, chat_id: int, topic_ids: List[int]):
+    for topic_id in topic_ids:
+        await bot.delete_forum_topic(chat_id, topic_id)

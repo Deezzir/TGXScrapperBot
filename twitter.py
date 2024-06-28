@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from scoring import Scrapper
 from typing import Dict, Optional
 from db import MongoDB
+from dataclasses import dataclass
 from telethon import TelegramClient
 
 load_dotenv()
@@ -31,8 +32,10 @@ RESEND_TO = [
 
 URL = "https://twitter154.p.rapidapi.com/search/search"
 
+QUERY_STRING = "'pump.fun' filter:links"
+
 QUERY = {
-    "query": "'pump.fun' filter:links",
+    "query": QUERY_STRING,
     "section": "latest",
     "min_retweets": "0",
     "min_likes": "0",
@@ -74,27 +77,35 @@ def determine_resend_number(score: float) -> int:
         return 0
 
 
+@dataclass
+class ScrapperTask:
+    task: asyncio.Task
+    options: Optional[utils.ScrapperOptions] = None
+
+
 class TwitterScrapper:
     def __init__(self, bot: Bot, db: MongoDB, sc: Scrapper, cl: TelegramClient) -> None:
         self.bot = bot
         self.db = db
         self.sc = sc
         self.cl = cl
-        self.tasks: dict[int, asyncio.Task] = {}
+        self.tasks: dict[int, ScrapperTask] = {}
         self.lock = asyncio.Lock()
 
-    async def start(self, chat_id: int, query: Optional[str] = None) -> None:
+    async def start(
+        self, chat_id: int, options: Optional[utils.ScrapperOptions] = None
+    ) -> None:
         if chat_id in self.tasks:
             await self.bot.send_message(chat_id, "Scrapping is already running")
             return
 
         async with aiohttp.ClientSession() as session:
-            task = asyncio.create_task(self._fetch_tweets(session, chat_id, query))
-            self.tasks[chat_id] = task
+            task = asyncio.create_task(self._fetch_tweets(session, chat_id, options))
+            self.tasks[chat_id] = ScrapperTask(task, options)
             try:
                 start_msg = (
-                    "Starting Twitter scrapper with query: " + query
-                    if query
+                    "Starting Twitter scrapper with query: " + options.query
+                    if options
                     else "Starting Twitter scrapper..."
                 )
                 await self.bot.send_message(chat_id, start_msg)
@@ -102,32 +113,36 @@ class TwitterScrapper:
             except asyncio.CancelledError:
                 LOGGER.info(f"Cancelling Twitter Scrapper Task for chat_id {chat_id}")
 
-    async def stop(self, chat_id: int) -> None:
-        task = self.tasks.get(chat_id)
-        if task:
+    async def stop(self, chat_id: int) -> Optional[utils.ScrapperOptions]:
+        task_options = self.tasks.get(chat_id)
+        if task_options:
             await self.bot.send_message(chat_id, "Stopping Twitter scrapper...")
-            task.cancel()
+            task_options.task.cancel()
             try:
-                await task
+                await task_options.task
             except asyncio.CancelledError:
                 LOGGER.info(f"Task for chat_id {chat_id} was successfully cancelled")
             finally:
                 del self.tasks[chat_id]
+            return task_options.options
         else:
             await self.bot.send_message(chat_id, "Twitter scrapper is not running")
+            return None
 
     async def _fetch_tweets(
         self,
         session: aiohttp.ClientSession,
         chat_id: int,
-        ticker_query: Optional[str] = None,
+        options: Optional[utils.ScrapperOptions] = None,
     ) -> None:
         global INTERVAL
         latest_timestamp = int(time.time() - 60 * 1)
 
         while True:
             try:
-                data = await self._fetch_tweets_data(session, query=ticker_query)
+                data = await self._fetch_tweets_data(
+                    session, query=options.query if options else None
+                )
 
                 if not data or not data.get("results"):
                     LOGGER.error("No results found.")
@@ -140,13 +155,11 @@ class TwitterScrapper:
                     if tweet["timestamp"] <= latest_timestamp:
                         break
 
-                    if not ticker_query:
+                    if not options:
                         tasks.append(self._process_tweet(tweet, chat_id))
                     else:
                         tasks.append(
-                            self._process_send_ticker_tweet(
-                                tweet, chat_id, ticker_query
-                            )
+                            self._process_send_ticker_tweet(tweet, chat_id, options)
                         )
                 if tasks:
                     await asyncio.gather(*tasks)
@@ -157,7 +170,7 @@ class TwitterScrapper:
 
             LOGGER.info(
                 f"Latest Timestamp: {latest_timestamp}. Sleeping..."
-                + (" QUERY" if not ticker_query else " TICKER")
+                + (" QUERY" if not options else " TICKER")
             )
             await asyncio.sleep(INTERVAL)
 
@@ -185,53 +198,90 @@ class TwitterScrapper:
         score = 0.0
         if to_score:
             LOGGER.info(f"Calculating score for {user_name}")
+            # Enter Critical Section
             async with self.lock:
                 score = self.sc.calc_score(user_name)
             LOGGER.info(f"Score for {user_name}: {score}")
             await self.db.update_drop_score(user_id, score)
 
-        LOGGER.info(f"New tweet found: {tweet_id}")
+        LOGGER.info(f"New tweet found: {tweet_id} for query: {QUERY_STRING}")
         await self._send_tweet(tweet, score, chat_id, topic_id)
 
     async def _process_send_ticker_tweet(
-        self, tweet: Dict, chat_id: int, ticker_query: str
+        self, tweet: Dict, chat_id: int, options: utils.ScrapperOptions
     ) -> None:
-        username = tweet["user"]["username"]
+        if len(options.topic_ids) != 3:
+            LOGGER.error("Invalid topic_ids for ticker scrapper")
+
+        user_name = tweet["user"]["username"]
         tweet_id = tweet["tweet_id"]
         follower_count = tweet["user"]["follower_count"]
+        is_reply = tweet["in_reply_to_status_id"] is not None
         score = 0.0
+        ticker_query = options.query
 
         sanitized_text = await utils.replace_short_urls(tweet["text"])
         if ticker_query.lower() not in sanitized_text.lower():
             return
 
-        LOGGER.info(f"New Ticker tweet found: {tweet_id}")
+        LOGGER.info(f"New Ticker tweet found: {tweet_id} for query: {ticker_query}")
         if follower_count > 1000:
-            score = self.sc.calc_score(username)
+            LOGGER.info(f"Calculating score for {user_name}, Ticker: {ticker_query}")
+            # Enter Critical Section
+            async with self.lock:
+                score = self.sc.calc_score(user_name)
+            LOGGER.info(f"Score for {user_name}: {score}, Ticker: {ticker_query}")
 
         keyboard_buttons = [
             [
                 InlineKeyboardButton(
                     text="📁 Tweet",
-                    url=f"https://twitter.com/{username}/status/{tweet_id}",
+                    url=f"https://twitter.com/{user_name}/status/{tweet_id}",
                 ),
                 InlineKeyboardButton(
                     text="🐤 Profile",
-                    url=f"https://x.com/{username}",
+                    url=f"https://x.com/{user_name}",
                 ),
             ],
         ]
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
         payload = (
-            f"<b>- NEW TWEET -</b>\n\n"
-            f"<blockquote>{await utils.replace_short_urls(tweet['text'])}</blockquote>\n\n"
-            f"👤 @{username}\n"
+            (
+                f"<b>- NEW TWEET -</b>\n\n"
+                if not is_reply
+                else f"<b>- NEW REPLY -</b>\n\n"
+            )
+            + f"<blockquote>{await utils.replace_short_urls(tweet['text'])}</blockquote>\n\n"
+            f"👤 @{user_name}\n"
             f"👨‍👩‍👦‍👦 <b>Followers:</b> {follower_count}\n"
             f"🪩 <b>Space Score:</b> {score}\n"
         )
 
-        msg = await utils.send_message(self.bot, chat_id, payload, keyboard=keyboard)
+        if not is_reply:
+            await utils.send_message(
+                self.bot,
+                chat_id,
+                payload,
+                keyboard=keyboard,
+                topic_id=options.topic_ids[0],
+            )
+        else:
+            await utils.send_message(
+                self.bot,
+                chat_id,
+                payload,
+                keyboard=keyboard,
+                topic_id=options.topic_ids[1],
+            )
+        if score > 0.0:
+            await utils.send_message(
+                self.bot,
+                chat_id,
+                payload,
+                keyboard=keyboard,
+                topic_id=options.topic_ids[2],
+            )
 
     async def _send_tweet(
         self,

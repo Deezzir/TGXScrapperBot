@@ -14,6 +14,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     Message,
     CallbackQuery,
+    ChatMemberAdministrator,
 )
 import db
 import utils
@@ -113,6 +114,13 @@ async def command_run_handler(message: Message) -> None:
     if not message.from_user:
         return
 
+    bot_member = await BOT.get_chat_member(message.chat.id, BOT.id)
+    if not isinstance(bot_member, ChatMemberAdministrator):
+        await message.answer(
+            "The bot must be an admin to start the ticker scrapper.", show_alert=True
+        )
+        return
+
     member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
     if member.status not in ["creator", "administrator"]:
         await message.answer(
@@ -138,6 +146,13 @@ async def command_run_pools_handler(message: Message) -> None:
     if not message.from_user:
         return
 
+    bot_member = await BOT.get_chat_member(message.chat.id, BOT.id)
+    if not isinstance(bot_member, ChatMemberAdministrator):
+        await message.answer(
+            "The bot must be an admin to start the ticker scrapper.", show_alert=True
+        )
+        return
+
     member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
     if member.status not in ["creator", "administrator"]:
         await message.answer(
@@ -153,24 +168,42 @@ async def command_run_ticker_handler(message: Message, command: CommandObject) -
     """
     This handler receives messages with `/runticker` command
     """
+    if not message.from_user:
+        return
+
     if message.chat.id == SUPERGROUP_ID:
         await message.reply(
             "This command is only available outside of the CALL CENTER."
         )
         return
 
-    if not message.from_user:
+    if not message.chat.is_forum:
+        await message.reply("This command is only available in groups with topics.")
         return
 
     member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
     if member.status not in ["creator", "administrator"]:
         await message.answer(
-            "You must be an admin to start the scrapper.", show_alert=True
+            "You must be an admin to start the ticker scrapper.", show_alert=True
         )
         return
+
+    bot_member = await BOT.get_chat_member(message.chat.id, BOT.id)
+    if isinstance(bot_member, ChatMemberAdministrator):
+        if not bot_member.can_manage_topics:
+            await message.answer(
+                "The bot must have permission to manage topics to start the ticker scrapper.",
+            )
+            return
+    else:
+        await message.answer(
+            "The bot must be an admin to start the ticker scrapper.", show_alert=True
+        )
+        return
+
     if member.user.id not in ALLOWED_USERS:
         await message.answer(
-            "You are not allowed to start the scrapper.", show_alert=True
+            "You are not allowed to start the ticker scrapper.", show_alert=True
         )
         return
 
@@ -183,7 +216,9 @@ async def command_run_ticker_handler(message: Message, command: CommandObject) -
         await message.answer("Invalid ticker format. Please provide a valid ticker.")
         return
 
-    asyncio.create_task(TWITTER.start(message.chat.id, query=arg))
+    topic_ids = await utils.setup_ticker_scrapper(BOT, message.chat.id)
+    options = utils.ScrapperOptions(query=arg, topic_ids=topic_ids)
+    asyncio.create_task(TWITTER.start(message.chat.id, options=options))
 
 
 @DISPATCHER.message(Command("stoppools"))
@@ -191,8 +226,14 @@ async def command_stop_pools_handler(message: Message) -> None:
     """
     This handler receives messages with `/stoppools` command
     """
-    chat_id = message.chat.id
     if not message.from_user:
+        return
+
+    bot_member = await BOT.get_chat_member(message.chat.id, BOT.id)
+    if not isinstance(bot_member, ChatMemberAdministrator):
+        await message.answer(
+            "The bot must have permission to manage topics to stop the scrapper.",
+        )
         return
 
     member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
@@ -213,6 +254,13 @@ async def command_stop_handler(message: Message) -> None:
     if not message.from_user:
         return
 
+    bot_member = await BOT.get_chat_member(message.chat.id, BOT.id)
+    if not isinstance(bot_member, ChatMemberAdministrator):
+        await message.answer(
+            "The bot must have permission to manage topics to stop the scrapper.",
+        )
+        return
+
     member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
     if member.status not in ["creator", "administrator"]:
         await message.answer(
@@ -220,7 +268,10 @@ async def command_stop_handler(message: Message) -> None:
         )
         return
 
-    await TWITTER.stop(message.chat.id)
+    chat_id = message.chat.id
+    result = await TWITTER.stop(message.chat.id)
+    if result:
+        await utils.clear_x_scrapper(BOT, chat_id, result.topic_ids)
 
 
 @DISPATCHER.callback_query(F.data == "add_admin")
