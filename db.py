@@ -10,7 +10,7 @@ import logging
 from typing import Optional
 
 load_dotenv()
-LOGGER = logging.getLogger(__name__)
+LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
 class MongoDB:
@@ -22,7 +22,7 @@ class MongoDB:
         self.BANNED_COLLECTION = None
         self.DROPS_COLLECTION = None
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         LOGGER.info("Connecting to MongoDB...")
         self.client = AsyncIOMotorClient(self.MONGO_URI, server_api=ServerApi("1"))
         self.db = self.client[self.COLLECTION_NAME]

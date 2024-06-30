@@ -18,35 +18,33 @@ from aiogram.types import (
 )
 import db
 import utils
-from telethon import TelegramClient, events, functions
-from telethon.sessions import StringSession
-from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument
-from typing import List
+from telethon import TelegramClient, events  # type: ignore
+from telethon.sessions import StringSession  # type: ignore
+from telethon.tl.types import MessageMediaPhoto, MessageMediaDocument  # type: ignore
+from typing import List, Dict
 import os
 import pools
 
 load_dotenv()
 
-BOT_APP_ID = os.getenv("BOT_APP_ID")
-RPC = os.getenv("RPC", "")
-BOT_APP_HASH = os.getenv("BOT_APP_HASH")
-TOKEN = os.getenv("BOT_TOKEN", "")
-SUPERGROUP_ID = int(os.getenv("SUPERGROUP_ID", "0"))
-BOT_SESSION = os.getenv("BOT_SESSION", "")
+BOT_APP_ID: str = os.getenv("BOT_APP_ID", "")
+RPC: str = os.getenv("RPC", "")
+BOT_APP_HASH: str = os.getenv("BOT_APP_HASH", "")
+TOKEN: str = os.getenv("BOT_TOKEN", "")
+SUPERGROUP_ID: int = int(os.getenv("SUPERGROUP_ID", "0"))
+BOT_SESSION: str = os.getenv("BOT_SESSION", "")
 ALLOWED_USERS: List[int] = [
     int(user) for user in os.getenv("ALLOWED_USERS", "").split(",")
 ]
 
-load_dotenv()
+HANDLE: str = "@XCryptoScrapperBot"
+TITLE: str = "🔰 XScrapper V1.0"
+NAME: str = "XCryptoScrapperBot"
+DESCRIPTION: str = "The ultimate bot for scrapping Pump.fun drops"
+SCORER: scoring.Scrapper = scoring.Scrapper()
+LOGGER: logging.Logger = logging.getLogger(__name__)
 
-HANDLE = "@XCryptoScrapperBot"
-TITLE = "🔰 XScrapper V1.0"
-NAME = "XCryptoScrapperBot"
-DESCRIPTION = "The ultimate bot for scrapping Pump.fun drops"
-SCORER = scoring.Scrapper()
-LOGGER = logging.getLogger(__name__)
-
-TARGET_CHANNELS = [
+TARGET_CHANNELS: List[dict] = [
     {"id": -1001999456751, "name": "ferb’s", "link": "https://t.me/ferbsfriends"},
     {"id": -1002158735564, "name": "Qwerty", "link": "https://t.me/QwertysQuants"},
     {"id": -1002089676082, "name": "joji", "link": "https://t.me/jojiinnercircle"},
@@ -59,23 +57,21 @@ TARGET_CHANNELS = [
     },
 ]
 
-COMMANDS = {
+COMMANDS: Dict[str, str] = {
     "run": "Start Twitter scrapper",
     "stop": "Stop Twitter scrapper",
     "runpools": "Start new Pump.fun Bonds scrapper",
     "stoppools": "Stop Pump.fun Bonds scrapper",
 }
 
-if not TOKEN:
-    LOGGER.error("BOT_TOKEN is not provided!")
-    sys.exit(1)
-
-DISPATCHER = Dispatcher()
-DB = db.MongoDB()
-BOT = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-CLIENT = TelegramClient(StringSession(BOT_SESSION), BOT_APP_ID, BOT_APP_HASH)
-NEW_POOLS = pools.NewPoolsScrapper(RPC, BOT)
-TWITTER = twitter.TwitterScrapper(BOT, DB, SCORER, CLIENT)
+DISPATCHER: Dispatcher = Dispatcher()
+DB: db.MongoDB = db.MongoDB()
+BOT: Bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+CLIENT: TelegramClient = TelegramClient(
+    StringSession(BOT_SESSION), BOT_APP_ID, BOT_APP_HASH
+)
+NEW_POOLS: pools.NewPoolsScrapper = pools.NewPoolsScrapper(RPC, BOT)
+TWITTER: twitter.TwitterScrapper = twitter.TwitterScrapper(BOT, DB, SCORER, CLIENT)
 
 
 @DISPATCHER.message(CommandStart())
@@ -128,7 +124,13 @@ async def command_run_handler(message: Message) -> None:
         )
         return
 
-    asyncio.create_task(TWITTER.start(chat_id))
+    topic_ids = {"100": 5, "10": 4, "0": 3, "scores": 37874}
+    options = twitter.ScrapperOptions(
+        queries=[twitter.PUMP_QUERY],
+        topic_ids=topic_ids,
+        type=twitter.ScrapperType.PUMP,
+    )
+    asyncio.create_task(TWITTER.start(chat_id, options=options))
 
 
 @DISPATCHER.message(Command("runpools"))
@@ -207,17 +209,50 @@ async def command_run_ticker_handler(message: Message, command: CommandObject) -
         )
         return
 
-    arg = command.args
-    if not arg:
-        await message.answer("Please provide a ticker to start the scrapper.")
+    err_msg = "Please provide a Ticker and CA to start the scrapper.\n\nExample: /runticker $WSOL So11111111111111111111111111111111111111112"
+
+    input = command.args
+    if not input:
+        await message.answer(err_msg)
         return
 
-    if not re.match(r"^\$[A-Za-z]+$", arg):
-        await message.answer("Invalid ticker format. Please provide a valid ticker.")
+    args = input.strip().split(" ")
+    if len(args) != 2:
+        await message.answer(err_msg)
         return
+
+    ticker = args[0]
+    if not re.match(r"^\$[A-Za-z]+$", ticker):
+        await message.answer(
+            "Invalid Ticker. Please provide a valid ticker. Example: $WSOL"
+        )
+        return
+
+    mint = args[1]
+    if not utils.is_valid_pubkey(mint):
+        await message.answer(
+            "Invalid CA. Please provide a valid CA. Example: So11111111111111111111111111111111111111112"
+        )
+        return
+
+    queries = [ticker, mint]
+    token_info = await utils.get_token_info(mint)
+    if token_info:
+        if ticker.replace("$", "") != token_info.symbol:
+            await message.answer(
+                f"Invalid Ticker. The provided Ticker does not match the Ticker of the token with CA {mint}"
+            )
+            return
+        queries.append(f"https://pump.fun/{mint}")
+        if token_info.raydium_pool:
+            queries.append(
+                f"https://dexscreener.com/solana/{str(token_info.raydium_pool)}"
+            )
 
     topic_ids = await utils.setup_ticker_scrapper(BOT, message.chat.id)
-    options = utils.ScrapperOptions(query=arg, topic_ids=topic_ids)
+    options = twitter.ScrapperOptions(
+        queries=queries, topic_ids=topic_ids, type=twitter.ScrapperType.TOKEN
+    )
     asyncio.create_task(TWITTER.start(message.chat.id, options=options))
 
 
@@ -269,8 +304,8 @@ async def command_stop_handler(message: Message) -> None:
         return
 
     chat_id = message.chat.id
-    result = await TWITTER.stop(message.chat.id)
-    if result:
+    result = await TWITTER.stop(chat_id)
+    if result and result.type == twitter.ScrapperType.TOKEN:
         await utils.clear_x_scrapper(BOT, chat_id, result.topic_ids)
 
 

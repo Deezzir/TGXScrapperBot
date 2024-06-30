@@ -1,9 +1,9 @@
 from selenium import webdriver
-from fake_useragent import UserAgent
+from fake_useragent import UserAgent  # type: ignore
 import sys
 import random as rnd
 import logging
-from typing import Optional
+from typing import Optional, Dict
 from dotenv import load_dotenv
 from time import sleep
 from selenium.webdriver.support import expected_conditions as EC
@@ -23,13 +23,13 @@ from selenium.webdriver.firefox.service import Service as FirefoxService
 
 load_dotenv()
 
-X_LOGIN_URL = "https://twitter.com/i/flow/login"
-LOGGER = logging.getLogger(__name__)
-USERNAME = getenv("X_USERNAME", "")
-PASSWORD = getenv("X_PASSWORD", "")
-PHONE = getenv("X_PHONE", "")
+X_LOGIN_URL: str = "https://twitter.com/i/flow/login"
+LOGGER: logging.Logger = logging.getLogger(__name__)
+USERNAME: str = getenv("X_USERNAME", "")
+PASSWORD: str = getenv("X_PASSWORD", "")
+PHONE: str = getenv("X_PHONE", "")
 
-SCORES = {
+SCORES: Dict[str, float] = {
     "wallstreetbets": 1,
     "kookcapitalllc": 0.5,
     "hgeabc": 0.5,
@@ -60,7 +60,7 @@ SCORES = {
 
 
 class Scrapper:
-    def __init__(self):
+    def __init__(self) -> None:
         if not USERNAME or not PASSWORD:
             LOGGER.error("X_USERNAME or X_PASSWORD is not provided")
             sys.exit(1)
@@ -70,7 +70,7 @@ class Scrapper:
         self.phone = PHONE
         self.driver = self._init_driver()
 
-    def _init_driver(self) -> Optional[webdriver.Firefox]:
+    def _init_driver(self) -> webdriver.Firefox:
         LOGGER.info("Initializing driver...")
         ua = UserAgent()
 
@@ -112,7 +112,7 @@ class Scrapper:
         sleep(3)
         self._input_credentials()
 
-    def _input_unusual_activity(self):
+    def _input_unusual_activity(self) -> None:
         max_attempts = 5
         attempts = 0
 

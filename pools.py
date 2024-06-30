@@ -6,18 +6,16 @@ from aiohttp import ClientSession
 from solana.rpc.websocket_api import connect as ws_connect
 from websockets.exceptions import ConnectionClosedError
 from solana.rpc.async_api import AsyncClient
-from solders.rpc.responses import GetTransactionResp, GetSignaturesForAddressResp
+from solders.rpc.responses import GetTransactionResp  # type: ignore
 from solana.rpc.types import MemcmpOpts, Commitment
-from solders.pubkey import Pubkey
-from solders.transaction_status import (
+from solders.pubkey import Pubkey  # type: ignore
+from solders.transaction_status import (  # type: ignore
     UiTransaction,
-    EncodedTransactionWithStatusMeta,
     UiPartiallyDecodedInstruction,
 )
-from solders.rpc.config import RpcTransactionLogsFilterMentions
-from solders.signature import Signature
-from typing import Optional, Tuple, List, Dict, Any, Union, TypedDict
-import pprint
+from solders.rpc.config import RpcTransactionLogsFilterMentions  # type: ignore
+from solders.signature import Signature  # type: ignore
+from typing import Optional, Tuple, List, Any, Union, TypedDict
 from dataclasses import dataclass
 from dotenv import load_dotenv
 from aiogram import Bot
@@ -32,13 +30,15 @@ import utils
 load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
-LOGGER = logging.getLogger(__name__)
+LOGGER: logging.Logger = logging.getLogger(__name__)
 
-RPC = getenv("RPC")
-TOKEN = getenv("BOT_TOKEN", "")
-RAYDIUN_PROGRAM_ID = Pubkey.from_string("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
-SOL_MINT = Pubkey.from_string("So11111111111111111111111111111111111111112")
-PUMP_WALLET = Pubkey.from_string("39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg")
+RPC: str = getenv("RPC", "")
+TOKEN: str = getenv("BOT_TOKEN", "")
+RAYDIUN_PROGRAM_ID: Pubkey = Pubkey.from_string(
+    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
+)
+SOL_MINT: Pubkey = Pubkey.from_string("So11111111111111111111111111111111111111112")
+PUMP_WALLET: Pubkey = Pubkey.from_string("39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg")
 
 
 @dataclass
@@ -73,7 +73,7 @@ class AssetData:
 
 
 class NewPoolsScrapper:
-    def __init__(self, rpc: str, bot: Bot):
+    def __init__(self, rpc: str, bot: Bot) -> None:
         self.rpc = rpc
         self.task: Optional[asyncio.Task[Any]] = None
         self.topic_id = 35117
@@ -236,13 +236,19 @@ class NewPoolsScrapper:
     ) -> Optional[dict]:
         if not self.task or not uri:
             return None
-        try:
-            async with session.get(uri) as response:
-                data = await response.json()
-                return data
-        except Exception as e:
-            LOGGER.error(f"Error in _get_token_uri_metadata: {e}")
-            return None
+
+        retries = 0
+
+        while retries < 2:
+            try:
+                async with session.get(uri) as response:
+                    data = await response.json()
+                    return data
+            except Exception as e:
+                LOGGER.error(f"Error in _get_token_uri_metadata: {e}")
+                retries += 1
+                await asyncio.sleep(1)
+        return None
 
     async def _get_tx_details(
         self, client: AsyncClient, sig: Signature

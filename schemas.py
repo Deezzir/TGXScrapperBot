@@ -1,10 +1,10 @@
-from typing import TypedDict
+from typing import TypedDict, Dict, Any
 
-banned_schema = {
+banned_schema: Dict[str, Dict[str, Any]] = {
     "xUserId": {"type": "string", "unique": True},
 }
 
-drops_schema = {
+drops_schema: Dict[str, Dict[str, Any]] = {
     "xUserId": {"type": "string", "unique": True},
     "xUsername": {"type": "string"},
     "score": {"type": "number"},

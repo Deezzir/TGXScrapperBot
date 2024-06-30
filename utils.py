@@ -1,5 +1,5 @@
 import re
-from solders.pubkey import Pubkey
+from solders.pubkey import Pubkey  # type: ignore
 import aiohttp
 import asyncio
 from aiogram import Bot
@@ -15,32 +15,33 @@ from aiogram.types import (
 )
 from aiogram.enums import ParseMode
 from dataclasses import dataclass
-from typing import Optional, Union, Tuple, List
+from typing import Dict, Optional, Union, Tuple, List
 import logging
 from datetime import datetime
-from pprint import pprint
 
-LOGGER = logging.getLogger(__name__)
-ASSOCIATED_TOKEN_PROGRAM_ID = Pubkey.from_string(
+LOGGER: logging.Logger = logging.getLogger(__name__)
+ASSOCIATED_TOKEN_PROGRAM_ID: Pubkey = Pubkey.from_string(
     "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
 )
-TOKEN_PROGRAM_ID = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+TOKEN_PROGRAM_ID: Pubkey = Pubkey.from_string(
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+)
 
 
-@dataclass
-class ScrapperOptions:
-    query: str
-    topic_ids: List[int]
+def is_valid_pubkey(pubkey: str) -> bool:
+    try:
+        Pubkey.from_string(pubkey)
+        return True
+    except Exception as e:
+        return False
 
 
 def extract_mint_from_url(url: str) -> Optional[str]:
     mint_address = url.split("/")[-1]
 
-    try:
-        Pubkey.from_string(mint_address)
-        return mint_address
-    except Exception as e:
+    if not is_valid_pubkey(mint_address):
         return None
+    return mint_address
 
 
 def extract_url_and_validate_mint_address(text: str) -> Optional[str]:
@@ -53,14 +54,12 @@ def extract_url_and_validate_mint_address(text: str) -> Optional[str]:
     url = match.group(0)
     mint_address = url.split("/")[-1]
 
-    try:
-        Pubkey.from_string(mint_address)
-        return url
-    except Exception as e:
+    if not is_valid_pubkey(mint_address):
         return None
+    return url
 
 
-def is_root_domain(url: str):
+def is_root_domain(url: str) -> bool:
     ROOT_DOMAIN_PATTERN = re.compile(r"^https:\/\/[^\/]+\/?$")
     return bool(ROOT_DOMAIN_PATTERN.match(url))
 
@@ -180,6 +179,8 @@ class TokenInfo:
     created_timestamp: str
     usd_market_cap: float
     bonding_curve: Pubkey
+    symbol: str
+    raydium_pool: Optional[Pubkey] = None
 
 
 async def get_token_info(mint: str) -> Optional[TokenInfo]:
@@ -194,13 +195,27 @@ async def get_token_info(mint: str) -> Optional[TokenInfo]:
                     and "creator" in data
                     and "created_timestamp" in data
                     and "usd_market_cap" in data
+                    and "bonding_curve" in data
+                    and "symbol" in data
+                    and "raydium_pool" in data
                 ):
                     dev_pubkey = Pubkey.from_string(data["creator"])
                     created_timestamp = data["created_timestamp"]
                     usd_market_cap = data["usd_market_cap"]
                     bonding_curve = Pubkey.from_string(data["bonding_curve"])
+                    raydium_pool = (
+                        None
+                        if not data["raydium_pool"]
+                        else Pubkey.from_string(data["raydium_pool"])
+                    )
+                    symbol = data["symbol"]
                     return TokenInfo(
-                        dev_pubkey, created_timestamp, usd_market_cap, bonding_curve
+                        dev_pubkey,
+                        created_timestamp,
+                        usd_market_cap,
+                        bonding_curve,
+                        symbol,
+                        raydium_pool,
                     )
     except Exception as e:
         LOGGER.error(f"Error fetching token info: {e}")
@@ -243,7 +258,7 @@ def get_token_wallet(owner: Pubkey, mint: Pubkey) -> Pubkey:
     )[0]
 
 
-async def setup_ticker_scrapper(bot: Bot, chat_id: int) -> List[int]:
+async def setup_ticker_scrapper(bot: Bot, chat_id: int) -> Dict[str, int]:
     tweets_topic = await bot.create_forum_topic(chat_id, "TWEETS", icon_color=7322096)
     replies_topic = await bot.create_forum_topic(
         chat_id, "REPLIES", icon_color=16766590
@@ -252,13 +267,13 @@ async def setup_ticker_scrapper(bot: Bot, chat_id: int) -> List[int]:
         chat_id, "WIF SCORE", icon_color=13338331
     )
 
-    return [
-        tweets_topic.message_thread_id,
-        replies_topic.message_thread_id,
-        scores_topic.message_thread_id,
-    ]
+    return {
+        "tweets": tweets_topic.message_thread_id,
+        "replies": replies_topic.message_thread_id,
+        "scores": scores_topic.message_thread_id,
+    }
 
 
-async def clear_x_scrapper(bot: Bot, chat_id: int, topic_ids: List[int]):
-    for topic_id in topic_ids:
+async def clear_x_scrapper(bot: Bot, chat_id: int, topic_ids: Dict[str, int]) -> None:
+    for topic_id in topic_ids.values():
         await bot.delete_forum_topic(chat_id, topic_id)
