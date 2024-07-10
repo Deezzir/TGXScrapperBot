@@ -228,10 +228,6 @@ class TwitterScrapper:
         tweet_id = tweet["tweet_id"]
         follower_count = tweet["user"]["follower_count"]
 
-        if await self.db.check_banned(user_id):
-            LOGGER.info(f"User {user_name} is banned")
-            return
-
         drop = await self.db.get_drop(user_id)
 
         if drop:
@@ -242,6 +238,10 @@ class TwitterScrapper:
                 return
         else:
             await self.db.insert_drop(user_id, user_name, tweet_id)
+
+        if await self.db.check_banned(user_id):
+            LOGGER.info(f"User {user_name} is banned")
+            return
 
         score = 0.0
         if follower_count > 1000:
