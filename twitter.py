@@ -268,6 +268,7 @@ class TwitterScrapper:
 
         user_name = tweet["user"]["username"]
         tweet_id = tweet["tweet_id"]
+        tweet_url = f"https://twitter.com/{user_name}/status/{tweet_id}"
         follower_count = tweet["user"]["follower_count"]
         is_reply = tweet["in_reply_to_status_id"] is not None
         sanitized_text = await utils.replace_short_urls(tweet["text"])
@@ -286,7 +287,7 @@ class TwitterScrapper:
             [
                 InlineKeyboardButton(
                     text="📁 Tweet",
-                    url=f"https://twitter.com/{user_name}/status/{tweet_id}",
+                    url=tweet_url,
                 ),
                 InlineKeyboardButton(
                     text="🐤 Profile",
@@ -305,7 +306,8 @@ class TwitterScrapper:
             + f"<blockquote>{sanitized_text}</blockquote>\n\n"
             f"👤 @{user_name}\n"
             f"👨‍👩‍👦‍👦 <b>Followers:</b> {follower_count}\n"
-            f"🪩 <b>Space Score:</b> {score}\n"
+            f"🪩 <b>Space Score:</b> {score}\n\n"
+            f"`{tweet_url}`"
         )
 
         if not is_reply:
