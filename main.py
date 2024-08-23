@@ -37,7 +37,7 @@ ALLOWED_USERS: List[int] = [
     int(user) for user in os.getenv("ALLOWED_USERS", "").split(",")
 ]
 
-HANDLE: str = "@XCryptoScrapperBot"
+HANDLE: str = "@xcryptoscrapper_bot"
 TITLE: str = "🔰 XScrapper V1.0"
 NAME: str = "XCryptoScrapperBot"
 DESCRIPTION: str = "The ultimate bot for scrapping Pump.fun drops"
@@ -62,6 +62,7 @@ COMMANDS: Dict[str, str] = {
     "stop": "Stop Twitter scrapper",
     "runpools": "Start new Pump.fun Bonds scrapper",
     "stoppools": "Stop Pump.fun Bonds scrapper",
+    "runticker": "Start Twitter Scrapper by a ticker and CA"
 }
 
 DISPATCHER: Dispatcher = Dispatcher()
