@@ -438,7 +438,7 @@ class NewPoolsScrapper:
         asset = await self._get_asset(session, mint)
         if asset:
             uri_meta = await self._get_token_uri_metadata(
-                session, asset["content"]["json_uri"]
+                session, f"https://pump.mypinata.cloud/ipfs/{str(mint)}"
             )
             if not uri_meta:
                 return None
