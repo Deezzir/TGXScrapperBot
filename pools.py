@@ -430,6 +430,10 @@ class NewPoolsScrapper:
             LOGGER.error(f"Error in get_allocation_info: {e}")
             return info
 
+    def _fix_link(url: str) -> str:
+        cut_pos = url.rfind("/")
+        return f"https://pump.mypinata.cloud/ipfs{url[cut_pos:]}"
+
     async def _get_asset_info(
         self, session: ClientSession, client: AsyncClient, mint: Pubkey, pair: Pubkey
     ) -> Optional[AssetData]:
@@ -438,7 +442,7 @@ class NewPoolsScrapper:
         asset = await self._get_asset(session, mint)
         if asset:
             uri_meta = await self._get_token_uri_metadata(
-                session, f"https://pump.mypinata.cloud/ipfs/{str(mint)}"
+                session, self._fix_link(asset["content"]["json_uri"])
             )
             if not uri_meta:
                 return None
@@ -465,7 +469,7 @@ class NewPoolsScrapper:
                 name=asset["content"]["metadata"]["name"],
                 symbol=asset["content"]["metadata"]["symbol"],
                 twitter=twitter,
-                img_url=img_url,
+                img_url=None if not img_url else self._fix_link(img_url),
                 telegram=telegram,
                 website=website,
                 pump=(f"https://pump.fun/{mint}"),
