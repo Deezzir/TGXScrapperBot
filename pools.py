@@ -430,7 +430,7 @@ class NewPoolsScrapper:
             LOGGER.error(f"Error in get_allocation_info: {e}")
             return info
 
-    def _fix_link(self, url: str) -> str:
+    def _fix_link(self,  url: str) -> str:
         cut_pos = url.rfind("/")
         return f"https://pump.mypinata.cloud/ipfs{url[cut_pos:]}"
 

@@ -307,7 +307,7 @@ class TwitterScrapper:
             f"👤 @{user_name}\n"
             f"👨‍👩‍👦‍👦 <b>Followers:</b> {follower_count}\n"
             f"🪩 <b>Space Score:</b> {score}\n\n"
-            f"<code>{tweet_url}</code>"
+            f"<code>/raid {tweet_url}</code>"
         )
 
         if not is_reply:
