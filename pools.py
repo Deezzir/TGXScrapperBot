@@ -469,7 +469,7 @@ class NewPoolsScrapper:
                 name=asset["content"]["metadata"]["name"],
                 symbol=asset["content"]["metadata"]["symbol"],
                 twitter=twitter,
-                img_url=None if not img_url else self._fix_link(img_url),
+                img_url="" if not img_url else self._fix_link(img_url),
                 telegram=telegram,
                 website=website,
                 pump=(f"https://pump.fun/{mint}"),

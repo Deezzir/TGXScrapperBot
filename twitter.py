@@ -97,11 +97,10 @@ class ScrapperTask:
 
 
 class TwitterScrapper:
-    def __init__(self, bot: Bot, db: MongoDB, sc: Scrapper, cl: TelegramClient) -> None:
+    def __init__(self, bot: Bot, db: MongoDB, sc: Scrapper) -> None:
         self.bot = bot
         self.db = db
         self.sc = sc
-        self.cl = cl
         self.tasks: dict[int, ScrapperTask] = {}
         self.lock = asyncio.Lock()
 
@@ -423,8 +422,6 @@ class TwitterScrapper:
         if resend_number == 0 or not pump_url:
             return
 
-        mentions = await self._get_mentions_payload(chat_id)
-        payload = mentions + payload
         resend_keyboard_buttons = keyboard_buttons.copy()
         del resend_keyboard_buttons[0][-1]
 
@@ -448,14 +445,14 @@ class TwitterScrapper:
                 )
             await asyncio.sleep(1)
 
-    async def _get_mentions_payload(self, chat_id: int) -> str:
-        LOGGER.info(f"Getting mentions for chat_id {chat_id}")
-        notifies = []
-        async for user in self.cl.iter_participants(chat_id):
-            notifies.append(
-                '<a href="tg://user?id=' + str(user.id) + '">\u206c\u206f</a>'
-            )
-        return "\u206c\u206f".join(notifies)
+    # async def _get_mentions_payload(self, chat_id: int) -> str:
+    #     LOGGER.info(f"Getting mentions for chat_id {chat_id}")
+    #     notifies = []
+    #     async for user in self.cl.iter_participants(chat_id):
+    #         notifies.append(
+    #             '<a href="tg://user?id=' + str(user.id) + '">\u206c\u206f</a>'
+    #         )
+    #     return "\u206c\u206f".join(notifies)
 
     async def _fetch_tweets_data(
         self, session: aiohttp.ClientSession, query: str, is_secondary: bool = False

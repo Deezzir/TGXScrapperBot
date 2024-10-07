@@ -23,7 +23,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install any needed packages specified in depends.txt
-RUN pip install -r depends.txt
+RUN pip install -r requirements.txt
 
 # Run main.py when the container launches
 CMD ["python", "main.py"]

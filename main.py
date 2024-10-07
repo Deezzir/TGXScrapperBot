@@ -66,7 +66,7 @@ CLIENT: TelegramClient = TelegramClient(
     StringSession(BOT_SESSION), BOT_APP_ID, BOT_APP_HASH
 )
 NEW_POOLS: pools.NewPoolsScrapper = pools.NewPoolsScrapper(RPC, BOT)
-TWITTER: twitter.TwitterScrapper = twitter.TwitterScrapper(BOT, DB, SCORER, CLIENT)
+TWITTER: twitter.TwitterScrapper = twitter.TwitterScrapper(BOT, DB, SCORER)
 
 
 @DISPATCHER.message(CommandStart())
