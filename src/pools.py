@@ -18,7 +18,6 @@ from solders.rpc.config import RpcTransactionLogsFilterMentions  # type: ignore
 from solders.rpc.responses import GetTransactionResp  # type: ignore
 from solders.signature import Signature  # type: ignore
 from solders.transaction_status import UiPartiallyDecodedInstruction, UiTransaction  # type: ignore
-from websockets.exceptions import ConnectionClosedError
 
 import utils
 
@@ -299,13 +298,13 @@ class NewPoolsScrapper:
                         async with ws_connect(f"wss://{self.rpc}", ping_interval=60, ping_timeout=120) as websocket:
                             sub_id = None
                             try:
-                                await websocket.logs_subscribe(
+                                await websocket.logs_subscribe(  # type: ignore
                                     RpcTransactionLogsFilterMentions(RAYDIUN_PROGRAM_ID),
                                     "confirmed",
                                 )
                                 LOGGER.info("Subscribed to logs. Waiting for messages...")
                                 first_resp = await websocket.recv()
-                                sub_id = first_resp[0].result
+                                sub_id = first_resp[0].result  # type: ignore
 
                                 async for log in websocket:
                                     try:
@@ -321,25 +320,20 @@ class NewPoolsScrapper:
                                             if asset_info:
                                                 await self._post_new_pool(asset_info)
                                     except asyncio.CancelledError:
-                                        LOGGER.info("Log processing was cancelled.")
                                         done = True
                                         break
                                     except Exception as e:
                                         LOGGER.error(f"Error processing a log: {e}")
                             except asyncio.CancelledError:
-                                LOGGER.info("Program Logs Task was cancelled.")
                                 done = True
-                            except ConnectionClosedError as e:
-                                LOGGER.error(f"WebSocket connection closed: {e}")
                             except Exception as e:
                                 LOGGER.error(f"Error in Program Logs Task: {e}")
                             finally:
                                 if sub_id:
-                                    await websocket.logs_unsubscribe(sub_id)
+                                    await websocket.logs_unsubscribe(sub_id)  # type: ignore
                                     self.task = None
                                 LOGGER.info("Cleaned up resources.")
                     except asyncio.CancelledError:
-                        LOGGER.info("Task was cancelled.")
                         done = True
                     except Exception as e:
                         LOGGER.error(f"Error establishing WebSocket connection: {e}")

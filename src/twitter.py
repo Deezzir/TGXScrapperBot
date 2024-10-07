@@ -19,7 +19,7 @@ load_dotenv()
 
 INTERVAL: int = 3  # seconds
 LOGGER: logging.Logger = logging.getLogger(__name__)
-RESEND_TO: List[int] = list(map(lambda x: int(x), getenv("RESEND_GROUP_IDS", "0").split(",")))
+RESEND_TO: List[int] = [int(user) for user in getenv("RESEND_GROUP_IDS", "").split(",")]
 
 URL: str = "https://twitter154.p.rapidapi.com/search/search"
 

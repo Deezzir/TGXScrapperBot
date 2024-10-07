@@ -3,13 +3,14 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import aiohttp
 from aiogram import Bot
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import (
+    ChatMemberAdministrator,
     ForceReply,
     InlineKeyboardMarkup,
     InputFile,
@@ -251,3 +252,38 @@ async def get_bot_user_id(client: TelegramClient, source_chat: str) -> int:
     async with client:
         bot = await client.get_entity(source_chat)
         return bot.id
+
+
+async def run_ticker_handler_validate(message: Message, group_id: int, bot: Bot, allowed_users: List[int]) -> bool:
+    if not message.from_user:
+        return False
+
+    if message.chat.id == group_id:
+        await message.reply("This command is only available outside of the CALL CENTER.")
+        return False
+
+    if not message.chat.is_forum:
+        await message.reply("This command is only available in groups with topics.")
+        return False
+
+    member = await bot.get_chat_member(message.chat.id, message.from_user.id)
+    if member.status not in ["creator", "administrator"]:
+        await message.answer("You must be an admin to start the ticker scrapper.", show_alert=True)
+        return False
+
+    bot_member = await bot.get_chat_member(message.chat.id, bot.id)
+    if isinstance(bot_member, ChatMemberAdministrator):
+        if not bot_member.can_manage_topics:
+            await message.answer(
+                "The bot must have permission to manage topics to start the ticker scrapper.",
+            )
+            return False
+    else:
+        await message.answer("The bot must be an admin to start the ticker scrapper.", show_alert=True)
+        return False
+
+    if member.user.id not in allowed_users:
+        await message.answer("You are not allowed to start the ticker scrapper.", show_alert=True)
+        return False
+
+    return True

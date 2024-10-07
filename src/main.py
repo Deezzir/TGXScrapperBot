@@ -9,13 +9,7 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.types import (
-    CallbackQuery,
-    ChatMemberAdministrator,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    Message,
-)
+from aiogram.types import CallbackQuery, ChatMemberAdministrator, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from dotenv import load_dotenv
 from telethon import TelegramClient, events  # type: ignore
 from telethon.sessions import StringSession  # type: ignore
@@ -30,13 +24,13 @@ import utils
 load_dotenv()
 
 RPC: str = os.getenv("RPC", "")
-USER_BOT_APP_HASH: str = os.getenv("BOT_APP_HASH", "")
-USER_BOT_APP_ID: str = os.getenv("BOT_APP_ID", "")
 BOT_TOKEN: str = os.getenv("BOT_TOKEN", "")
-MAIN_GROUP_ID: int = int(os.getenv("SUPERGROUP_ID", "0"))
+USER_BOT_APP_HASH: str = os.getenv("USER_BOT_APP_HASH", "")
+USER_BOT_APP_ID: str = os.getenv("USER_BOT_APP_ID", "")
+USER_BOT_SESSION: str = os.getenv("USER_BOT_SESSION", "")
+MAIN_GROUP_ID: int = int(os.getenv("MAIN_GROUP_ID", "0"))
 WALLET_TRACK_BOT_NAME: str = os.getenv("WALLET_TRACK_BOT_NAME", "")
 WALLET_TRACK_GROUP_ID: int = int(os.getenv("WALLET_TRACK_GROUP_ID", 0))
-USER_BOT_SESSION: str = os.getenv("BOT_SESSION", "")
 ALLOWED_USERS: List[int] = [int(user) for user in os.getenv("ALLOWED_USERS", "").split(",")]
 
 HANDLE: str = "@xcryptoscrapper_bot"
@@ -64,9 +58,7 @@ COMMANDS: Dict[str, str] = {
 DISPATCHER: Dispatcher = Dispatcher()
 DB: db.MongoDB = db.MongoDB()
 BOT: Bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-USER_BOT_CLIENT: TelegramClient = TelegramClient(
-    StringSession(USER_BOT_SESSION), USER_BOT_APP_ID, USER_BOT_APP_HASH
-)
+USER_BOT_CLIENT: TelegramClient = TelegramClient(StringSession(USER_BOT_SESSION), USER_BOT_APP_ID, USER_BOT_APP_HASH)
 NEW_POOLS: pools.NewPoolsScrapper = pools.NewPoolsScrapper(RPC, BOT)
 TWITTER: twitter.TwitterScrapper = twitter.TwitterScrapper(BOT, DB, SCORER)
 
@@ -81,9 +73,7 @@ async def command_start_handler(message: Message) -> None:
             callback_data="add_admin",
         )
         inline_keyboard = InlineKeyboardMarkup(inline_keyboard=[[inline_button]])
-        commands_string = "\n".join(
-            [f"/{command} - {description}" for command, description in COMMANDS.items()]
-        )
+        commands_string = "\n".join([f"/{command} - {description}" for command, description in COMMANDS.items()])
         payload = f"{TITLE}\n\n" f"{DESCRIPTION}\n\n" f"Commands:\n" f"{commands_string}\n\n"
         await message.answer(payload, reply_markup=inline_keyboard)
 
@@ -103,9 +93,7 @@ async def command_run_handler(message: Message) -> None:
 
     bot_member = await BOT.get_chat_member(message.chat.id, BOT.id)
     if not isinstance(bot_member, ChatMemberAdministrator):
-        await message.answer(
-            "The bot must be an admin to start the ticker scrapper.", show_alert=True
-        )
+        await message.answer("The bot must be an admin to start the ticker scrapper.", show_alert=True)
         return
 
     member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
@@ -137,9 +125,7 @@ async def command_run_pools_handler(message: Message) -> None:
 
     bot_member = await BOT.get_chat_member(message.chat.id, BOT.id)
     if not isinstance(bot_member, ChatMemberAdministrator):
-        await message.answer(
-            "The bot must be an admin to start the ticker scrapper.", show_alert=True
-        )
+        await message.answer("The bot must be an admin to start the ticker scrapper.", show_alert=True)
         return
 
     member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
@@ -153,37 +139,7 @@ async def command_run_pools_handler(message: Message) -> None:
 @DISPATCHER.message(Command("runticker"))
 async def command_run_ticker_handler(message: Message, command: CommandObject) -> None:
     """Handle messages with `/runticker` command."""
-    if not message.from_user:
-        return
-
-    if message.chat.id == MAIN_GROUP_ID:
-        await message.reply("This command is only available outside of the CALL CENTER.")
-        return
-
-    if not message.chat.is_forum:
-        await message.reply("This command is only available in groups with topics.")
-        return
-
-    member = await BOT.get_chat_member(message.chat.id, message.from_user.id)
-    if member.status not in ["creator", "administrator"]:
-        await message.answer("You must be an admin to start the ticker scrapper.", show_alert=True)
-        return
-
-    bot_member = await BOT.get_chat_member(message.chat.id, BOT.id)
-    if isinstance(bot_member, ChatMemberAdministrator):
-        if not bot_member.can_manage_topics:
-            await message.answer(
-                "The bot must have permission to manage topics to start the ticker scrapper.",
-            )
-            return
-    else:
-        await message.answer(
-            "The bot must be an admin to start the ticker scrapper.", show_alert=True
-        )
-        return
-
-    if member.user.id not in ALLOWED_USERS:
-        await message.answer("You are not allowed to start the ticker scrapper.", show_alert=True)
+    if not utils.run_ticker_handler_validate(message, MAIN_GROUP_ID, BOT, ALLOWED_USERS):
         return
 
     err_msg = (
@@ -192,6 +148,7 @@ async def command_run_ticker_handler(message: Message, command: CommandObject) -
     )
 
     input = command.args
+
     if not input:
         await message.answer(err_msg)
         return
@@ -209,8 +166,7 @@ async def command_run_ticker_handler(message: Message, command: CommandObject) -
     mint = args[1]
     if not utils.is_valid_pubkey(mint):
         await message.answer(
-            "Invalid CA. Please provide a valid CA. "
-            "Example: So11111111111111111111111111111111111111112"
+            "Invalid CA. Please provide a valid CA. " "Example: So11111111111111111111111111111111111111112"
         )
         return
 
@@ -219,8 +175,7 @@ async def command_run_ticker_handler(message: Message, command: CommandObject) -
     if token_info:
         if ticker.replace("$", "") != token_info.symbol:
             await message.answer(
-                "Invalid Ticker. The provided Ticker does not match the "
-                f"Ticker of the token with CA {mint}"
+                "Invalid Ticker. The provided Ticker does not match the " f"Ticker of the token with CA {mint}"
             )
             return
         queries.append(f"https://pump.fun/{mint}")
@@ -228,9 +183,7 @@ async def command_run_ticker_handler(message: Message, command: CommandObject) -
             queries.append(f"https://dexscreener.com/solana/{str(token_info.raydium_pool)}")
 
     topic_ids = await utils.setup_ticker_scrapper(BOT, message.chat.id)
-    options = twitter.ScrapperOptions(
-        queries=queries, topic_ids=topic_ids, type=twitter.ScrapperType.TOKEN
-    )
+    options = twitter.ScrapperOptions(queries=queries, topic_ids=topic_ids, type=twitter.ScrapperType.TOKEN)
     asyncio.create_task(TWITTER.start(message.chat.id, options=options))
 
 
