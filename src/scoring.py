@@ -1,25 +1,22 @@
-from selenium import webdriver
-from fake_useragent import UserAgent  # type: ignore
-import sys
-import random as rnd
 import logging
-from typing import Optional, Dict
-from dotenv import load_dotenv
-from time import sleep
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import (
-    NoSuchElementException,
-    TimeoutException,
-    WebDriverException,
-)
-from selenium.webdriver.remote.webelement import WebElement
-from selenium.webdriver.common.keys import Keys
+import random as rnd
+import sys
 from functools import reduce
 from os import getenv
-from webdriver_manager.firefox import GeckoDriverManager
+from time import sleep
+from typing import Dict, Optional
+
+from dotenv import load_dotenv
+from fake_useragent import UserAgent  # type: ignore
+from selenium import webdriver
+from selenium.common.exceptions import NoSuchElementException, TimeoutException, WebDriverException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.firefox.service import Service as FirefoxService
+from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.support import expected_conditions as ec
+from selenium.webdriver.support.ui import WebDriverWait
+from webdriver_manager.firefox import GeckoDriverManager
 
 load_dotenv()
 
@@ -61,6 +58,7 @@ SCORES: Dict[str, float] = {
 
 class Scrapper:
     def __init__(self) -> None:
+        """Initialize Scrapper."""
         if not USERNAME or not PASSWORD:
             LOGGER.error("X_USERNAME or X_PASSWORD is not provided")
             sys.exit(1)
@@ -118,10 +116,8 @@ class Scrapper:
 
         while attempts < max_attempts:
             try:
-                unusual_activity = self.driver.find_element(
-                    "xpath", "//input[@data-testid='ocfEnterTextTextInput']"
-                )
-                LOGGER.info(f"Unusual activity field found, entering phone number...")
+                unusual_activity = self.driver.find_element("xpath", "//input[@data-testid='ocfEnterTextTextInput']")
+                LOGGER.info("Unusual activity field found, entering phone number...")
                 self._simulate_typing(unusual_activity, self.phone)
                 unusual_activity.send_keys(Keys.RETURN)
                 sleep(1)
@@ -142,10 +138,8 @@ class Scrapper:
 
         while attempts < max_attempts:
             try:
-                username_field = self.driver.find_element(
-                    "xpath", "//input[@autocomplete='username']"
-                )
-                LOGGER.info(f"Username field found, entering username...")
+                username_field = self.driver.find_element("xpath", "//input[@autocomplete='username']")
+                LOGGER.info("Username field found, entering username...")
                 self._simulate_typing(username_field, self.username)
                 sleep(0.3)
                 username_field.send_keys(Keys.RETURN)
@@ -167,10 +161,8 @@ class Scrapper:
 
         while attempts < max_attempts:
             try:
-                password_field = self.driver.find_element(
-                    "xpath", "//input[@autocomplete='current-password']"
-                )
-                LOGGER.info(f"Password field found, entering password...")
+                password_field = self.driver.find_element("xpath", "//input[@autocomplete='current-password']")
+                LOGGER.info("Password field found, entering password...")
                 self._simulate_typing(password_field, self.password)
                 sleep(0.3)
                 password_field.send_keys(Keys.RETURN)
@@ -190,11 +182,11 @@ class Scrapper:
         # username
         self._input_username()
         sleep(3)
+        self._input_unusual_activity()
+        sleep(2)
         # password
         self._input_password()
         sleep(3)
-        self._input_unusual_activity()
-        sleep(2)
 
         try:
             cookies = self.driver.get_cookies()
@@ -229,7 +221,7 @@ class Scrapper:
         self.driver.get(f"https://x.com/{username}/followers_you_follow")
         try:
             elements = self.wait.until(
-                EC.visibility_of_all_elements_located(
+                ec.visibility_of_all_elements_located(
                     (
                         By.XPATH,
                         "//div[@aria-label='Timeline: Followers you know']/div//span[contains(text(), '@')]",
@@ -237,17 +229,13 @@ class Scrapper:
                 )
             )
             return elements
-        except TimeoutException as e:
-            LOGGER.error(f"Error waiting for followers list")
+        except TimeoutException:
+            LOGGER.error("Error waiting for followers list")
             return None
 
     def _get_score(self, elememts: list[WebElement]) -> float:
         followers = [el.text.replace("@", "").lower() for el in elememts]
-        return float(
-            reduce(
-                lambda acc, follower: acc + SCORES.get(follower, 0.0), followers, 0.0
-            )
-        )
+        return float(reduce(lambda acc, follower: acc + SCORES.get(follower, 0.0), followers, 0.0))
 
     def _simulate_typing(
         self,

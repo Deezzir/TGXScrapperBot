@@ -1,0 +1,65 @@
+[tool.flake8]
+ignore = ["D100", "D101", "D102", "D103", "W503", "W504"]
+exclude = ['.eggs', '.git', '.tox', '.venv', '.build', 'lib', 'report']
+max-line-length = 120
+max-complexity = 10
+
+[tool.black]
+line-length = 120
+exclude = '''
+/(
+    | .eggs
+    | .git
+    | .tox
+    | .venv
+    | .build
+    | lib
+    | report
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+skip_glob = [
+  ".eggs",
+  ".git",
+  ".tox",
+  ".venv",
+  ".build",
+  "lib",
+  "report"
+]
+
+[tool.pylint]
+max-line-length = 120
+ignore-paths = [
+  ".eggs",
+  ".git",
+  ".tox",
+  ".venv",
+  ".build",
+  "lib",
+  "report",
+  "tests",
+]
+disable = [
+    "E1102",
+]
+
+[tool.mypy]
+warn_unused_ignores = true
+warn_unused_configs = true
+warn_unreachable = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+exclude = [
+  ".eggs",
+  ".git",
+  ".tox",
+  ".venv",
+  ".build",
+  "lib",
+  "report",
+  "tests",
+]

@@ -26,4 +26,4 @@ RUN apt-get update && \
 RUN pip install -r requirements.txt
 
 # Run main.py when the container launches
-CMD ["python", "main.py"]
+CMD ["python", "src/main.py"]

@@ -1,30 +1,25 @@
-import logging
 import asyncio
 import json
-from os import getenv
-from aiohttp import ClientSession
-from solana.rpc.websocket_api import connect as ws_connect
-from websockets.exceptions import ConnectionClosedError
-from solana.rpc.async_api import AsyncClient
-from solders.rpc.responses import GetTransactionResp  # type: ignore
-from solana.rpc.types import MemcmpOpts, Commitment
-from solders.pubkey import Pubkey  # type: ignore
-from solders.transaction_status import (  # type: ignore
-    UiTransaction,
-    UiPartiallyDecodedInstruction,
-)
-from solders.rpc.config import RpcTransactionLogsFilterMentions  # type: ignore
-from solders.signature import Signature  # type: ignore
-from typing import Optional, Tuple, List, Any, Union, TypedDict
+import logging
 from dataclasses import dataclass
-from dotenv import load_dotenv
+from os import getenv
+from typing import Any, List, Optional, Tuple
+
 from aiogram import Bot
 from aiogram.enums import ParseMode
-from aiogram.types import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-)
-from aiogram.types import URLInputFile
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, URLInputFile
+from aiohttp import ClientSession
+from dotenv import load_dotenv
+from solana.rpc.async_api import AsyncClient
+from solana.rpc.types import Commitment
+from solana.rpc.websocket_api import connect as ws_connect
+from solders.pubkey import Pubkey  # type: ignore
+from solders.rpc.config import RpcTransactionLogsFilterMentions  # type: ignore
+from solders.rpc.responses import GetTransactionResp  # type: ignore
+from solders.signature import Signature  # type: ignore
+from solders.transaction_status import UiPartiallyDecodedInstruction, UiTransaction  # type: ignore
+from websockets.exceptions import ConnectionClosedError
+
 import utils
 
 load_dotenv()
@@ -34,9 +29,7 @@ LOGGER: logging.Logger = logging.getLogger(__name__)
 
 RPC: str = getenv("RPC", "")
 TOKEN: str = getenv("BOT_TOKEN", "")
-RAYDIUN_PROGRAM_ID: Pubkey = Pubkey.from_string(
-    "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
-)
+RAYDIUN_PROGRAM_ID: Pubkey = Pubkey.from_string("675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8")
 SOL_MINT: Pubkey = Pubkey.from_string("So11111111111111111111111111111111111111112")
 PUMP_WALLET: Pubkey = Pubkey.from_string("39azUYFWPz3VHgKCf3VChUwbpURdCHRxjWVowf5jUJjg")
 
@@ -57,7 +50,7 @@ class HoldersInfo:
 @dataclass
 class AssetData:
     dev_wallet: str
-    dev_allocation: int
+    dev_alloc: int
     top_holders: List[Holder]
     top_holders_allocation: int
     ca: str
@@ -74,6 +67,7 @@ class AssetData:
 
 class NewPoolsScrapper:
     def __init__(self, rpc: str, bot: Bot) -> None:
+        """Initialize New Pools scrapper."""
         self.rpc = rpc
         self.task: Optional[asyncio.Task[Any]] = None
         self.topic_id = 35117
@@ -109,9 +103,7 @@ class NewPoolsScrapper:
         else:
             if not self.chat_id:
                 return
-            await self.bot.send_message(
-                self.chat_id, "New Pools scrapper is not running."
-            )
+            await self.bot.send_message(self.chat_id, "New Pools scrapper is not running.")
 
     def _compress_dev_link(self, dev: str) -> str:
         compressed_string = dev[:4] + "\.\.\." + dev[-4:]
@@ -132,20 +124,14 @@ class NewPoolsScrapper:
             f"📛 *{asset_info.name} \(${asset_info.symbol}\)*\n"
             f"📄 *CA:* `{asset_info.ca}`\n\n"
             f"👨‍💻 *Dev:* {self._compress_dev_link(asset_info.dev_wallet)}\n"
-            f"🏛 *Dev Hodls:* {asset_info.dev_allocation if asset_info.dev_allocation > 1 else '<1%'}%\n\n"
+            f"🏛 *Dev Hodls:* {asset_info.dev_alloc if asset_info.dev_alloc > 1 else '<1%'}%\n\n"
             f"🐳 *Top Hodlers:* "
         )
-        allocation_strings = [
-            f"{holder.allocation}%" for holder in asset_info.top_holders[:5]
-        ]
+        allocation_strings = [f"{holder.allocation}%" for holder in asset_info.top_holders[:5]]
         result = " \| ".join(allocation_strings)
         payload += result
-        payload += (
-            f"\n*🏦 Top 20 Hodlers allocation:* {asset_info.top_holders_allocation}%\n"
-        )
-        payload += (
-            f"\n*⏰ Fill time: *{utils.calculate_timespan(int(asset_info.fill_time))}"
-        )
+        payload += f"\n*🏦 Top 20 Hodlers allocation:* {asset_info.top_holders_allocation}%\n"
+        payload += f"\n*⏰ Fill time: *{utils.calculate_timespan(int(asset_info.fill_time))}"
 
         if asset_info.twitter:
             top_buttons.append(
@@ -185,7 +171,7 @@ class NewPoolsScrapper:
         keyboard_buttons.append(bottom_buttons)
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
         image = URLInputFile(asset_info.img_url)
-        msg = await utils.send_photo(
+        _ = await utils.send_photo(
             self.bot,
             self.chat_id,
             image,
@@ -222,18 +208,14 @@ class NewPoolsScrapper:
         }
 
         try:
-            async with session.post(
-                f"https://{RPC}", headers=headers, data=json.dumps(payload)
-            ) as response:
+            async with session.post(f"https://{RPC}", headers=headers, data=json.dumps(payload)) as response:
                 data = await response.json()
                 return data["result"]
         except Exception as e:
             LOGGER.error(f"Error in _get_asset: {e}")
             return None
 
-    async def _get_token_uri_metadata(
-        self, session: ClientSession, uri: str
-    ) -> Optional[dict]:
+    async def _get_token_uri_metadata(self, session: ClientSession, uri: str) -> Optional[dict]:
         if not self.task or not uri:
             return None
 
@@ -250,9 +232,7 @@ class NewPoolsScrapper:
                 await asyncio.sleep(1)
         return None
 
-    async def _get_tx_details(
-        self, client: AsyncClient, sig: Signature
-    ) -> Optional[UiTransaction]:
+    async def _get_tx_details(self, client: AsyncClient, sig: Signature) -> Optional[UiTransaction]:
         if not self.task:
             return None
         tx_raw = GetTransactionResp(None)
@@ -260,9 +240,7 @@ class NewPoolsScrapper:
 
         try:
             while attempt < 10:
-                tx_raw = await client.get_transaction(
-                    sig, "jsonParsed", Commitment("confirmed"), 0
-                )
+                tx_raw = await client.get_transaction(sig, "jsonParsed", Commitment("confirmed"), 0)
                 if tx_raw != GetTransactionResp(None):
                     break
                 else:
@@ -279,9 +257,7 @@ class NewPoolsScrapper:
             LOGGER.error(f"Error in _get_tx_details: {e}")
         return None
 
-    async def _process_log(
-        self, client: AsyncClient, log: dict
-    ) -> Optional[Tuple[Pubkey, Pubkey]]:
+    async def _process_log(self, client: AsyncClient, log: dict) -> Optional[Tuple[Pubkey, Pubkey]]:
         if not self.task:
             return None
         value = log[0].result.value
@@ -302,9 +278,7 @@ class NewPoolsScrapper:
                 address_a = init_instr.accounts[8]
                 address_b = init_instr.accounts[9]
                 pair = init_instr.accounts[4]
-                LOGGER.info(
-                    f"FOUND new pair: Token A: {address_a} Token B: {address_b}"
-                )
+                LOGGER.info(f"FOUND new pair: Token A: {address_a} Token B: {address_b}")
                 if init_instr.accounts[17] != PUMP_WALLET:
                     LOGGER.info("Not a pump wallet transaction")
                     return None
@@ -314,7 +288,7 @@ class NewPoolsScrapper:
                     return (address_a, pair)
         return None
 
-    async def _get_new_pools(self):
+    async def _get_new_pools(self) -> None:
         if not self.task:
             return
         done = False
@@ -322,20 +296,14 @@ class NewPoolsScrapper:
             async with ClientSession() as session:
                 async with AsyncClient(f"https://{self.rpc}") as client:
                     try:
-                        async with ws_connect(
-                            f"wss://{self.rpc}", ping_interval=60, ping_timeout=120
-                        ) as websocket:
+                        async with ws_connect(f"wss://{self.rpc}", ping_interval=60, ping_timeout=120) as websocket:
                             sub_id = None
                             try:
                                 await websocket.logs_subscribe(
-                                    RpcTransactionLogsFilterMentions(
-                                        RAYDIUN_PROGRAM_ID
-                                    ),
+                                    RpcTransactionLogsFilterMentions(RAYDIUN_PROGRAM_ID),
                                     "confirmed",
                                 )
-                                LOGGER.info(
-                                    "Subscribed to logs. Waiting for messages..."
-                                )
+                                LOGGER.info("Subscribed to logs. Waiting for messages...")
                                 first_resp = await websocket.recv()
                                 sub_id = first_resp[0].result
 
@@ -343,9 +311,7 @@ class NewPoolsScrapper:
                                     try:
                                         mint_pair = await self._process_log(client, log)
                                         if mint_pair:
-                                            LOGGER.info(
-                                                f"Found new pool: {str(mint_pair[0])}"
-                                            )
+                                            LOGGER.info(f"Found new pool: {str(mint_pair[0])}")
                                             asset_info = await self._get_asset_info(
                                                 session,
                                                 client,
@@ -398,13 +364,7 @@ class NewPoolsScrapper:
                 info.top_holders.append(
                     Holder(
                         address=str(holder_raw.address),
-                        allocation=int(
-                            round(
-                                int(holder_raw.amount.amount)
-                                / int(total_supply.value.amount)
-                                * 100
-                            )
-                        ),
+                        allocation=int(round(int(holder_raw.amount.amount) / int(total_supply.value.amount) * 100)),
                     )
                 )
             if dev:
@@ -419,18 +379,15 @@ class NewPoolsScrapper:
                 info.top_holders = [
                     holder
                     for holder in info.top_holders
-                    if holder.address != str(bonding_curve_token)
-                    and holder.address != str(pump_token)
+                    if holder.address != str(bonding_curve_token) and holder.address != str(pump_token)
                 ]
-            info.top_holders_allocation = int(
-                sum(holder.allocation for holder in info.top_holders)
-            )
+            info.top_holders_allocation = int(sum(holder.allocation for holder in info.top_holders))
             return info
         except Exception as e:
             LOGGER.error(f"Error in get_allocation_info: {e}")
             return info
 
-    def _fix_link(self,  url: str) -> str:
+    def _fix_link(self, url: str) -> str:
         cut_pos = url.rfind("/")
         return f"https://pump.mypinata.cloud/ipfs{url[cut_pos:]}"
 
@@ -441,9 +398,7 @@ class NewPoolsScrapper:
             return None
         asset = await self._get_asset(session, mint)
         if asset:
-            uri_meta = await self._get_token_uri_metadata(
-                session, self._fix_link(asset["content"]["json_uri"])
-            )
+            uri_meta = await self._get_token_uri_metadata(session, self._fix_link(asset["content"]["json_uri"]))
             if not uri_meta:
                 return None
 
@@ -453,18 +408,14 @@ class NewPoolsScrapper:
             website = uri_meta.get("website", None)
             img_url = uri_meta.get("image", None)
             if token_info:
-                alloc_info = await self._get_allocation_info(
-                    client, mint, token_info.dev, token_info.bonding_curve
-                )
+                alloc_info = await self._get_allocation_info(client, mint, token_info.dev, token_info.bonding_curve)
 
             return AssetData(
                 dev_wallet=(str(token_info.dev) if token_info else "Unknown"),
                 fill_time=(token_info.created_timestamp if token_info else "Unknown"),
-                dev_allocation=alloc_info.dev_allocation if alloc_info else 0,
+                dev_alloc=alloc_info.dev_allocation if alloc_info else 0,
                 top_holders=alloc_info.top_holders if alloc_info else [],
-                top_holders_allocation=(
-                    alloc_info.top_holders_allocation if alloc_info else 0
-                ),
+                top_holders_allocation=(alloc_info.top_holders_allocation if alloc_info else 0),
                 ca=asset["id"],
                 name=asset["content"]["metadata"]["name"],
                 symbol=asset["content"]["metadata"]["symbol"],
@@ -478,11 +429,11 @@ class NewPoolsScrapper:
         return None
 
 
-async def test():
+async def test() -> None:
     bot = Bot(token=TOKEN)
-    processor = NewPoolsScrapper(RPC)
+    processor = NewPoolsScrapper(RPC, bot)
     try:
-        await processor.start(bot, 1)
+        await processor.start(1)
     except KeyboardInterrupt:
         await processor.stop()
 

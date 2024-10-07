@@ -1,4 +1,4 @@
-from typing import TypedDict, Dict, Any
+from typing import Any, Dict, TypedDict
 
 banned_schema: Dict[str, Dict[str, Any]] = {
     "xUserId": {"type": "string", "unique": True},
@@ -14,12 +14,12 @@ drops_schema: Dict[str, Dict[str, Any]] = {
 
 
 class BannedSchema(TypedDict):
-    xUserId: str
+    x_user_id: str
 
 
 class DropsSchema(TypedDict):
-    xUserId: str
-    xUsername: str
-    score: int
-    postIds: list[str]
-    messageIds: list[int]
+    x_user_id: str
+    x_username: str
+    x_score: int
+    x_post_ids: list[str]
+    message_ids: list[int]

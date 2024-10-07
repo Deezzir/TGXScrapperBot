@@ -1,38 +1,36 @@
-import re
-from solders.pubkey import Pubkey  # type: ignore
-import aiohttp
 import asyncio
+import logging
+import re
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Dict, Optional, Union
+
+import aiohttp
 from aiogram import Bot
+from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramAPIError
 from aiogram.types import (
-    Message,
-    LinkPreviewOptions,
+    ForceReply,
     InlineKeyboardMarkup,
+    InputFile,
+    LinkPreviewOptions,
+    Message,
     ReplyKeyboardMarkup,
     ReplyKeyboardRemove,
-    ForceReply,
-    InputFile,
 )
-from aiogram.enums import ParseMode
-from dataclasses import dataclass
-from typing import Dict, Optional, Union, Tuple, List
-import logging
-from datetime import datetime
+from solders.pubkey import Pubkey  # type: ignore
+from telethon import TelegramClient  # type: ignore
 
 LOGGER: logging.Logger = logging.getLogger(__name__)
-ASSOCIATED_TOKEN_PROGRAM_ID: Pubkey = Pubkey.from_string(
-    "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL"
-)
-TOKEN_PROGRAM_ID: Pubkey = Pubkey.from_string(
-    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
-)
+ASSOCIATED_TOKEN_PROGRAM_ID: Pubkey = Pubkey.from_string("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+TOKEN_PROGRAM_ID: Pubkey = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 
 
 def is_valid_pubkey(pubkey: str) -> bool:
     try:
         Pubkey.from_string(pubkey)
         return True
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -60,8 +58,8 @@ def extract_url_and_validate_mint_address(text: str) -> Optional[str]:
 
 
 def is_root_domain(url: str) -> bool:
-    ROOT_DOMAIN_PATTERN = re.compile(r"^https:\/\/[^\/]+\/?$")
-    return bool(ROOT_DOMAIN_PATTERN.match(url))
+    root_domain_regex = re.compile(r"^https:\/\/[^\/]+\/?$")
+    return bool(root_domain_regex.match(url))
 
 
 async def expand_url(short_url: str) -> str:
@@ -75,9 +73,9 @@ async def expand_url(short_url: str) -> str:
 
 
 async def replace_short_urls(text: str) -> str:
-    URL_PATTERN = re.compile(r"(https?://t\.co/\S+?)([\.,!?]*)(?:\s|$)")
+    url_regex = re.compile(r"(https?://t\.co/\S+?)([\.,!?]*)(?:\s|$)")
 
-    matches = URL_PATTERN.findall(text)
+    matches = url_regex.findall(text)
     tasks = [expand_url(url) for url, _ in matches]
     expanded_urls = await asyncio.gather(*tasks)
 
@@ -108,11 +106,7 @@ async def send_message(
     payload: str,
     topic_id: Optional[int] = None,
     post_url: Optional[str] = None,
-    keyboard: Optional[
-        Union[
-            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
-        ]
-    ] = None,
+    keyboard: Optional[Union[InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply]] = None,
     parse_mode: ParseMode = ParseMode.HTML,
 ) -> Optional[Message]:
     attempts = 0
@@ -126,9 +120,7 @@ async def send_message(
                 text=payload,
                 parse_mode=parse_mode,
                 reply_markup=keyboard,
-                link_preview_options=(
-                    (LinkPreviewOptions(url=post_url)) if post_url else None
-                ),
+                link_preview_options=((LinkPreviewOptions(url=post_url)) if post_url else None),
                 disable_web_page_preview=not bool(post_url),
             )
             return msg
@@ -145,11 +137,7 @@ async def send_photo(
     photo: Union[InputFile, str],
     caption: str,
     topic_id: Optional[int] = None,
-    keyboard: Optional[
-        Union[
-            InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
-        ]
-    ] = None,
+    keyboard: Optional[Union[InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply]] = None,
     parse_mode: ParseMode = ParseMode.HTML,
 ) -> Optional[Message]:
     attempts = 0
@@ -186,9 +174,7 @@ class TokenInfo:
 async def get_token_info(mint: str) -> Optional[TokenInfo]:
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"https://frontend-api.pump.fun/coins/{mint}"
-            ) as response:
+            async with session.get(f"https://frontend-api.pump.fun/coins/{mint}") as response:
                 data = await response.json()
                 if (
                     data
@@ -203,11 +189,7 @@ async def get_token_info(mint: str) -> Optional[TokenInfo]:
                     created_timestamp = data["created_timestamp"]
                     usd_market_cap = data["usd_market_cap"]
                     bonding_curve = Pubkey.from_string(data["bonding_curve"])
-                    raydium_pool = (
-                        None
-                        if not data["raydium_pool"]
-                        else Pubkey.from_string(data["raydium_pool"])
-                    )
+                    raydium_pool = None if not data["raydium_pool"] else Pubkey.from_string(data["raydium_pool"])
                     symbol = data["symbol"]
                     return TokenInfo(
                         dev_pubkey,
@@ -232,23 +214,13 @@ def calculate_timespan(timestamp: int) -> str:
 
     if time_difference_seconds >= 86400:
         time_difference_days = time_difference_seconds / 86400
-        return (
-            f"{int(time_difference_days)} days" if time_difference_days > 1 else "1 day"
-        )
+        return f"{int(time_difference_days)} days" if time_difference_days > 1 else "1 day"
     elif time_difference_seconds >= 3600:
         time_difference_hours = time_difference_seconds / 3600
-        return (
-            f"{int(time_difference_hours)} hours"
-            if time_difference_hours > 1
-            else "1 hour"
-        )
+        return f"{int(time_difference_hours)} hours" if time_difference_hours > 1 else "1 hour"
     else:
         time_difference_minutes = time_difference_seconds / 60
-        return (
-            f"{int(time_difference_minutes)} minutes"
-            if time_difference_minutes > 1
-            else "1 minute"
-        )
+        return f"{int(time_difference_minutes)} minutes" if time_difference_minutes > 1 else "1 minute"
 
 
 def get_token_wallet(owner: Pubkey, mint: Pubkey) -> Pubkey:
@@ -260,12 +232,8 @@ def get_token_wallet(owner: Pubkey, mint: Pubkey) -> Pubkey:
 
 async def setup_ticker_scrapper(bot: Bot, chat_id: int) -> Dict[str, int]:
     tweets_topic = await bot.create_forum_topic(chat_id, "TWEETS", icon_color=7322096)
-    replies_topic = await bot.create_forum_topic(
-        chat_id, "REPLIES", icon_color=16766590
-    )
-    scores_topic = await bot.create_forum_topic(
-        chat_id, "WIF SCORE", icon_color=13338331
-    )
+    replies_topic = await bot.create_forum_topic(chat_id, "REPLIES", icon_color=16766590)
+    scores_topic = await bot.create_forum_topic(chat_id, "WIF SCORE", icon_color=13338331)
 
     return {
         "tweets": tweets_topic.message_thread_id,
@@ -277,3 +245,9 @@ async def setup_ticker_scrapper(bot: Bot, chat_id: int) -> Dict[str, int]:
 async def clear_x_scrapper(bot: Bot, chat_id: int, topic_ids: Dict[str, int]) -> None:
     for topic_id in topic_ids.values():
         await bot.delete_forum_topic(chat_id, topic_id)
+
+
+async def get_bot_user_id(client: TelegramClient, source_chat: str) -> int:
+    async with client:
+        bot = await client.get_entity(source_chat)
+        return bot.id
