@@ -45,16 +45,10 @@ SCORER: scoring.Scrapper = scoring.Scrapper()
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
 TARGET_CHANNELS: List[dict] = [
-    {"id": -1001999456751, "name": "ferb’s", "link": "https://t.me/ferbsfriends"},
     {"id": -1002158735564, "name": "Qwerty", "link": "https://t.me/QwertysQuants"},
     {"id": -1002089676082, "name": "joji", "link": "https://t.me/jojiinnercircle"},
     {"id": -1002001411256, "name": "Borovik", "link": "https://t.me/borovikTG"},
     {"id": -1002047101414, "name": "Orangie", "link": "https://t.me/orangiealpha"},
-    {
-        "id": -1002204873147,
-        "name": "STARIY YESRT",
-        "link": "https://t.me/edrfgthyujiko",
-    },
 ]
 
 COMMANDS: Dict[str, str] = {
