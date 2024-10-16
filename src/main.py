@@ -37,7 +37,6 @@ HANDLE: str = "@xcryptoscrapper_bot"
 TITLE: str = "🔰 XScrapper V1.0"
 NAME: str = "XCryptoScrapperBot"
 DESCRIPTION: str = "The ultimate bot for scrapping Pump.fun drops"
-SCORER: scoring.Scrapper = scoring.Scrapper()
 LOGGER: logging.Logger = logging.getLogger(__name__)
 
 TARGET_CHANNELS: List[dict] = [
@@ -60,6 +59,7 @@ DB: db.MongoDB = db.MongoDB()
 BOT: Bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 USER_BOT_CLIENT: TelegramClient = TelegramClient(StringSession(USER_BOT_SESSION), USER_BOT_APP_ID, USER_BOT_APP_HASH)
 NEW_POOLS: pools.NewPoolsScrapper = pools.NewPoolsScrapper(RPC, BOT)
+SCORER: scoring.Scrapper = scoring.Scrapper() 
 TWITTER: twitter.TwitterScrapper = twitter.TwitterScrapper(BOT, DB, SCORER)
 
 
@@ -293,7 +293,7 @@ async def handler(event) -> None: # type: ignore
         text = event.message.message
         entities = event.message.entities
         if utils.has_solscan_url(entities):
-            await USER_BOT_CLIENT.send_message(WALLET_TRACK_GROUP_ID, text, entities=entities)
+            await USER_BOT_CLIENT.send_message(WALLET_TRACK_GROUP_ID, text, formatting_entities=entities)
 
 
 @USER_BOT_CLIENT.on(events.NewMessage(chats=[ch["id"] for ch in TARGET_CHANNELS]))
