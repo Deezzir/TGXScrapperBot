@@ -288,10 +288,12 @@ async def callback_report_handler(query: CallbackQuery) -> None:
 
 
 @USER_BOT_CLIENT.on(events.NewMessage(chats=WALLET_TRACK_BOT_NAME))
-async def handler(event: events.NewMessage) -> None:
-    bot_user_id = await utils.get_bot_user_id(USER_BOT_CLIENT, WALLET_TRACK_BOT_NAME)
-    if event.sender_id == bot_user_id:
-        await USER_BOT_CLIENT.send_message(WALLET_TRACK_GROUP_ID, event.message)
+async def handler(event) -> None: # type: ignore
+    if not event.out:
+        text = event.message.message
+        entities = event.message.entities
+        if utils.has_solscan_url(entities):
+            await USER_BOT_CLIENT.send_message(WALLET_TRACK_GROUP_ID, text, entities=entities)
 
 
 @USER_BOT_CLIENT.on(events.NewMessage(chats=[ch["id"] for ch in TARGET_CHANNELS]))
@@ -322,7 +324,7 @@ async def handle_message(event: events.NewMessage) -> None:
                     MAIN_GROUP_ID,
                     media.photo,
                     caption=message_with_link,
-                    reply_to=14775,
+                    reply_to=165503,
                     parse_mode="html",
                 )
             elif isinstance(media, MessageMediaDocument):
@@ -330,14 +332,14 @@ async def handle_message(event: events.NewMessage) -> None:
                     MAIN_GROUP_ID,
                     media.document,
                     caption=message_with_link,
-                    reply_to=14775,
+                    reply_to=165503,
                     parse_mode="html",
                 )
             else:
                 await USER_BOT_CLIENT.send_message(
                     MAIN_GROUP_ID,
                     message_with_link,
-                    reply_to=14775,
+                    reply_to=165503,
                     parse_mode="html",
                     link_preview=False,
                 )
@@ -345,7 +347,7 @@ async def handle_message(event: events.NewMessage) -> None:
             await USER_BOT_CLIENT.send_message(
                 MAIN_GROUP_ID,
                 message_with_link,
-                reply_to=14775,
+                reply_to=165503,
                 parse_mode="html",
                 link_preview=False,
             )

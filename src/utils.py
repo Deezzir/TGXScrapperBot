@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import aiohttp
 from aiogram import Bot
@@ -248,12 +248,6 @@ async def clear_x_scrapper(bot: Bot, chat_id: int, topic_ids: Dict[str, int]) ->
         await bot.delete_forum_topic(chat_id, topic_id)
 
 
-async def get_bot_user_id(client: TelegramClient, source_chat: str) -> int:
-    async with client:
-        bot = await client.get_entity(source_chat)
-        return bot.id
-
-
 async def run_ticker_handler_validate(message: Message, group_id: int, bot: Bot, allowed_users: List[int]) -> bool:
     if not message.from_user:
         return False
@@ -287,3 +281,14 @@ async def run_ticker_handler_validate(message: Message, group_id: int, bot: Bot,
         return False
 
     return True
+
+
+def has_solscan_url(entities: List[Any] | None) -> bool:
+    if entities is None:
+        return False
+
+    for entity in entities:
+        if hasattr(entity, 'url') and 'solscan' in entity.url:
+            return True
+
+    return False
